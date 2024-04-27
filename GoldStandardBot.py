@@ -303,7 +303,7 @@ async def amsu(ctx, header:str):
 @bot.command(name='ckz', help='Calculate the ckz WP relationship')
 async def ckz(ctx, vmax:float, storm_movement:float, latitude:float, roci:float, envp:float):
     import numpy as np
-
+    latitude = abs(latitude)
     #Velocity of storm with respect to movement speed:
     vsrm1 = vmax - 1.5 * (storm_movement ** 0.63)
     envp = envp+2
@@ -332,7 +332,7 @@ async def ckz(ctx, vmax:float, storm_movement:float, latitude:float, roci:float,
 async def rev_ckz(ctx, pres:float, storm_movement:float, latitude:float, roci:float, envp:float):
     import numpy as np
     import math
-
+    latitude = abs(latitude)
     poci = pres - 2
 
     #S-ratio calculation...
