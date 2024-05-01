@@ -2908,7 +2908,21 @@ async def oldibtracs(ctx, btkID:str, yr:str):
     import os
     btkID = btkID.upper()
     await ctx.send("Please wait. Due to my terrible potato laptop, the image may take a while to generate.")
-    
+    if btkID == 'BENTO':
+        btkID = 'BENTOJANA'
+    duplicates = ['ALICE 1953', 'ALICE 1954', 'ANA 2021', 'BABE 1977', 'BETTY 1966', 'BETTY 1972', 'BETTY 1975',
+                  'DOREEN 1965', 'EDITH 1967', 'ELLEN 1973', 'FABIAN 1985', 'IDA 1972', 'IRMA 1978', 'IVY 1994',
+                  'JUDY 1989', 'LINDA 1997', 'MAX 1981', 'NINA 1992', 'NORMAN 2000', 'ODETTE 2021', 'PAUL 2000',
+                  'ROSE 1965', 'RUTH 1980', 'SALLY 1971', 'SARAH 1983', 'SHARON 1994', 'TIM 1994', 'WANDA 1974',
+                  'TOMAS 2010', 'VICKY 2020', 'JOYCE 2018', 'GORDON 1979', 'BENI 2003', 'MARK 1992', 'NADINE 1978',
+                  'WINNIE 1978', 'HARVEY 2005', 'FREDA 1981', 'POLLY 1970', 'LOUISE 1970', 'LUCY 1962', 'CARMEN 1974']
+    check = f"{btkID} {yr}"
+    if check in duplicates:
+        await ctx.send(f"Error: {check} is the name of multiple storms in this database. Consider using their ATCF IDs instead.")
+        return
+    if(btkID == 'NOT_NAMED'):
+        await ctx.send("Due to the IBTRACS database being ambiguous with this name, it cannot be used.")
+        return
     print(f"Command received from server: {ctx.guild.name}")
     #Load in the loops for finding the latitude and longitude...
     IBTRACS_ID = f"{btkID}{yr}"
