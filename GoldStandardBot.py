@@ -976,7 +976,7 @@ async def rammb(ctx, btkID:str, yr:str):
 @bot.command(name='digty')
 async def digty(ctx, name:str, yr:str):
     name = name.upper()
-    if(btkID == 'NOT_NAMED'):
+    if(name == 'NOT_NAMED'):
         await ctx.send("Due to the IBTRACS database being ambiguous with this name, it cannot be used.")
         return
     jma = ""
