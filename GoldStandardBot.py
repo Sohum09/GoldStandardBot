@@ -908,7 +908,7 @@ async def tcdat(ctx, btkID:str, yr:str):
     ba = atcf_id[:2]
     basin_map_XX = {"AL":"ATL", "EP":"EPAC", "CP":"CPAC", "WP":"WPAC", "IO":"IO", "SH":"SHEM"}
     basin_map_20XX = {"AL":"AL", "EP":"EP", "CP":"CP", "WP":"WP", "IO":"IO", "AS":"IO", "BB":"IO", "SH":"SH", "SI":"SH", "SP":"SH"}
-    header_20XX = {"AL":"L", "EP":"E", "CP":"C", "WP":"W", "AS":"A", "BB":"B", "SH":"S", "SI":"S", "SP":"P"}
+    header_20XX = {"AL":"L", "EP":"E", "CP":"C", "WP":"W", "AS":"A", "BB":"B", "SH":"S", "SI":"S", "SP":"P", "IO":"B"}
     
     url = ""
     print(atcf_id)
