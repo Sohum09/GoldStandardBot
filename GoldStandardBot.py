@@ -4141,6 +4141,59 @@ async def zonal_anom(ctx):
     else:
         await ctx.send("Error 404: The image either does not exist or is yet to be created.")
 
+@bot.command(name='weatherunion')
+async def weatherunion(ctx, stn_id:str):
+    stn_id = stn_id.upper()
+    import requests
+
+    if stn_id == "HELP":
+        await ctx.send("A list of all station IDs supported by this command:")
+        await ctx.send("https://b.zmtcdn.com/data/file_assets/65fa362da3aa560a92f0b8aeec0dfda31713163042.pdf")
+        return
+
+    # Define the API endpoint URL
+    url = 'https://weatherunion.com/gw/weather/external/v0/get_locality_weather_data'
+
+    # Define the headers with the required content-type and your API key
+    headers = {
+        'content-type': 'application/json',
+        'x-zomato-api-key': '0b96804b60bf26c471255275a86f4d6e'
+    }
+
+    # Define the parameters (locality_id)
+    params = {
+        'locality_id': stn_id
+    }
+
+    # Make a GET request to the API
+    response = requests.get(url, headers=headers, params=params)
+    result = ""
+    # Check if the request was successful (status code 200)
+    if response.status_code == 200:
+        # Parse the JSON response
+        data = response.json()
+        
+        # Extract relevant information from the response
+        status = data['status']
+        message = data['message']
+        device_type = data['device_type']
+        locality_weather_data = data['locality_weather_data']
+        
+        # Print the extracted information
+        result += (f"```Status: {status}")
+        result += (f"\nMessage: {message}")
+        result += (f"\nDevice Type: {device_type}")
+        result += ("\nLocality Weather Data:")
+        result += (f"\nTemperature: {locality_weather_data['temperature']} °C")
+        result += (f"\nHumidity: {locality_weather_data['humidity']} %")
+        result += (f"\nWind Speed: {locality_weather_data['wind_speed']} m/s")
+        result += (f"\nWind Direction: {locality_weather_data['wind_direction']} degrees")
+        result += (f"\nRain Intensity: {locality_weather_data['rain_intensity']} mm/min")
+        result += (f"\nRain Accumulation: {locality_weather_data['rain_accumulation']} mm```")
+        await ctx.send(result)
+    else:
+        await ctx.send(f"Error: {response.status_code} - {response.reason}")
+
 @bot.command(name='rhoades')
 async def rhoades(ctx):
     image_path1 = 'rhoades1.webp'
