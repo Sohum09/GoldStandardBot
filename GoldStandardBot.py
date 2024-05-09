@@ -4186,7 +4186,7 @@ async def weatherunion(ctx, stn_id:str):
         result += ("\nLocality Weather Data:")
         result += (f"\nTemperature: {locality_weather_data['temperature']} °C")
         result += (f"\nHumidity: {locality_weather_data['humidity']} %")
-        result += (f"\nWind Speed: {locality_weather_data['wind_speed']} m/s")
+        result += (f"\nWind Speed: {locality_weather_data['wind_speed']} m/s, {(float(locality_weather_data['wind_speed'])*1.944):.2f} kts")
         result += (f"\nWind Direction: {locality_weather_data['wind_direction']} degrees")
         result += (f"\nRain Intensity: {locality_weather_data['rain_intensity']} mm/min")
         result += (f"\nRain Accumulation: {locality_weather_data['rain_accumulation']} mm```")
