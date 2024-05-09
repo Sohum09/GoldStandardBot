@@ -4157,7 +4157,7 @@ async def weatherunion(ctx, stn_id:str):
     # Define the headers with the required content-type and your API key
     headers = {
         'content-type': 'application/json',
-        'x-zomato-api-key': '0b96804b60bf26c471255275a86f4d6e'
+        'x-zomato-api-key': WEATHERUNION_API_KEY
     }
 
     # Define the parameters (locality_id)
