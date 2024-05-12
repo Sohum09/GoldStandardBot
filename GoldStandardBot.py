@@ -333,7 +333,7 @@ async def rev_ckz(ctx, pres:float, storm_movement:float, latitude:float, roci:fl
     import numpy as np
     import math
     latitude = abs(latitude)
-    poci = pres - 2
+    poci = pres - 5
 
     #S-ratio calculation...
     S = (roci/60)/8 + 0.1
