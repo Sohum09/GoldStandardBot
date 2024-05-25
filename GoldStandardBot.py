@@ -4383,6 +4383,26 @@ async def roastwpac(ctx):
     with open(image_path, 'rb') as image_file:
         image = discord.File(image_file)
         await ctx.send(file=image)
+@bot.command(name='mangkhut')
+async def mangkhut(ctx):
+    image_path = 'mangkhut.gif'
+
+    with open(image_path, 'rb') as image_file:
+        image = discord.File(image_file)
+        await ctx.send(file=image)
+
+@bot.command('weaktight')
+async def weaktight(ctx):
+    image_path = 'hinnafail.webp'
+    await ctx.send("```ANIMATED MULTISPECTRAL SATELLITE IMAGERY (MSI) SHOWS A"+ 
+    " MORE CONSOLIDATED AREA OF CONVECTION WRAPPING INTO A MID-LEVEL "+
+    "ROTATION. HOWEVER, THIS SYSTEM IS VOID OF A LOW LEVEL CIRCULATION "+
+    "CENTER AND HAS A WEAK BUT TIGHT TROUGHING ASSOCIATED WITH A WAVE "+
+    "PROPAGATING NORTHWESTWARD. THIS TIGHT TROUGH IS EVIDENT ON THE 272330Z "+
+    "PARTIAL ASCAT-C PASS.```")
+    with open(image_path, 'rb') as image_file:
+        image = discord.File(image_file)
+        await ctx.send(file=image)
 
 @bot.command(name='gati')
 async def gati(ctx):
