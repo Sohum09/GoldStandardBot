@@ -4113,6 +4113,23 @@ async def mcfetch_help(ctx):
         image2 = discord.File(image_file)
         await ctx.send(file=image2)
 
+@bot.command(name = 'ncep')
+async def ncep(ctx, hour:str, day:str, month:str, year:str, area_north='90', area_south='-90', area_west='-180', area_east='180', colormap='temp_19lev'):
+    import requests
+    from io import BytesIO
+    await ctx.send("Please wait as the data is plotted and generated.")
+    if int(year) <= 2015:
+        url = f'https://psl.noaa.gov/cgi-bin/mddb2/plot.pl?doplot=1&varID=141364&fileID=0&itype=0&variable=pres&levelType=Surface&level_units=&level=Surface&timetype=8x&fileTimetype=8x&year1={year}&month1={month}&day1={day}&hr1={hour.zfill(2)}%20Z&year2=2015&month2=12&day2=31&hr2=00%20Z&vectorPlot=0&contourLevel=custom&cint=100&lowr=98000&highr=102000&colormap={colormap}&reverseColormap=no&contourlines=1&colorlines=1&contourfill=1&contourlabels=1&removezonal=0&boundary=Geophysical&projection=CylindricalEquidistant&region=Custom&area_north={area_north}&area_west={area_west}&area_east={area_east}&area_south={area_south}&centerLat=0.0&centerLon=270.0&mapfill=0'
+    else:
+        url = f'https://psl.noaa.gov/cgi-bin/mddb2/plot.pl?doplot=1&varID=158846&fileID=0&itype=0&variable=slp&levelType=Sea%20Level&level_units=&level=Sea%20Level&timetype=4x&fileTimetype=4x&year1={year}&month1={month}&day1={day}&hr1={hour.zfill(2)}%20Z&year2=2024&month2=5&day2=30&hr2=00%20Z&vectorPlot=0&contourLevel=custom&cint=100&lowr=98000&highr=102000&colormap={colormap}&reverseColormap=no&contourlines=1&colorlines=1&contourfill=1&contourlabels=1&removezonal=0&boundary=Geophysical&projection=CylindricalEquidistant&region=Custom&area_north={area_north}&area_west={area_west}&area_east={area_east}&area_south={area_south}&centerLat=0.0&centerLon=270.0&mapfill=0'
+    response = requests.get(url)
+    if response.status_code == 200:
+        response = requests.get(url)
+        image_data = BytesIO(response.content)
+        await ctx.send(file=discord.File(image_data, 'ncep.jpg'))
+    else:
+        await ctx.send("Error 404: The image either does not exist or is yet to be created.")
+
 @bot.command(name='mjo')
 async def mjo(ctx, model:str):
     import requests
