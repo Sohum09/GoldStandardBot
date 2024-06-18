@@ -4250,6 +4250,93 @@ async def weatherunion(ctx, stn_id:str):
     else:
         await ctx.send(f"Error: {response.status_code} - {response.reason}")
 
+@bot.command(name='windplot')
+async def windplot(ctx, pres:str, hour:str, day:str, month:str, year:str, areaN=90, areaS=-90, areaW=-180, areaE=180, color='jet'):
+    import cdsapi
+    import cfgrib
+    import numpy as np
+    import matplotlib.pyplot as plt
+    import matplotlib.colors as mcolors
+    import cartopy.crs as ccrs
+    import cartopy.feature as cfeature
+    import os
+
+    await ctx.send("Please be patient as the required data is plotted.")
+
+    # Step 1: Download the data using the CDS API
+    c = cdsapi.Client()
+    c.retrieve(
+        'reanalysis-era5-pressure-levels',
+        {
+            'product_type': 'reanalysis',
+            'format': 'grib',
+            'variable': [
+                'u_component_of_wind', 'v_component_of_wind',
+            ],
+            'pressure_level': f'{pres}',
+            'year': f'{year}',
+            'month': f'{month.zfill(2)}',
+            'day': f'{day.zfill(2)}',
+            'time': f'{hour.zfill(2)}:00',
+            'area': [
+                areaN, areaW, areaS,
+                areaE,
+            ],
+        },
+        'download.grib')
+
+    # Step 2: Read and process the GRIB data
+    ds = cfgrib.open_dataset('download.grib')
+    u850_data = ds['u'].values
+    v850_data = ds['v'].values
+    
+    lats = ds['latitude'].values
+    lons = ds['longitude'].values
+    
+
+    # Step 3: Plot the streamlines with color representing wind speed in knots
+    
+    # Calculate wind speed magnitude in m/s
+    wind_speed_m_s = np.sqrt(u850_data**2 + v850_data**2)
+    # Convert wind speed to knots
+    wind_speed_knots = wind_speed_m_s * 1.94384
+    
+    fig = plt.figure(figsize=(12, 8))
+    ax = plt.axes(projection=ccrs.PlateCarree())
+    
+    ax.set_extent([areaW, areaE, areaS, areaN], crs=ccrs.PlateCarree())
+    
+    ax.add_feature(cfeature.COASTLINE)
+    ax.add_feature(cfeature.BORDERS)
+    ax.add_feature(cfeature.LAND, edgecolor='black')
+    ax.add_feature(cfeature.OCEAN, edgecolor='black', facecolor='#add8e6')
+    
+    # Add grid lines
+    ax.gridlines(draw_labels=True, linewidth=0.5, color='gray', alpha=0.5, linestyle='--')
+    
+    # Plot streamlines with color representing wind speed
+    strm = ax.streamplot(lons, lats, u850_data, v850_data, transform=ccrs.PlateCarree(), linewidth=1, density=2,
+                        color=wind_speed_knots, cmap=f'{color}', arrowstyle='->', arrowsize=1.5)
+    
+    # Add a color bar, scaled to fit the plot size
+    cbar = plt.colorbar(strm.lines, ax=ax, orientation='horizontal', pad=0.05, aspect=50, shrink=0.5)
+    cbar.set_label('Wind Speed (knots)')
+    
+    plt.title(f'ERA5 Reanalysis Streamlines of Winds at {pres} hPa\n {hour.zfill(2)}00 UTC on {day.zfill(2)}/{month.zfill(2)}/{year}')
+    plt.xlabel('Longitude')
+    plt.ylabel('Latitude')
+    plt.tight_layout()
+    # Adjust spacing above and below the plot
+    
+    image_path = f'Streamlines.png'
+    plt.savefig(image_path, format='png', bbox_inches='tight')
+    plt.close()
+
+    with open(image_path, 'rb') as image_file:
+        image = discord.File(image_file)
+        await ctx.send(file=image)
+    os.remove(image_path)
+
 @bot.command(name='rhoades')
 async def rhoades(ctx):
     image_path1 = 'rhoades1.webp'
