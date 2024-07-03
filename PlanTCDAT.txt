@@ -1,0 +1,9 @@
+> User inputs command:
+If year > 2018:
+    run tc20XX url using ATCFID from IBTRACS
+    Sample URL appearance:
+    https://www.nrlmry.navy.mil/tcdat/tc20XX/{BASIN}/{ATCF_ID_in_IBTRACS}/
+else
+    run tc0X url by finding ATCF ID Header (XXB), name, basin and year from IBTRACS, using NONAME if storm name does not exist.
+    Sample URL appearance:
+    https://www.nrlmry.navy.mil/tcdat/tc{Last_2_digits}/{FULLBASINNAME}/{ATCFHEADER}.{NAME}/

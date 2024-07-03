@@ -1,0 +1,18 @@
+open csv
+input day and month
+initialize a hash array
+ID = ""
+Name = ""
+resultOTD = []
+with open('ibtracs.ALL.list.v04r00.csv', mode='r') as file:
+        csvFile = csv.reader(file)
+        for line_num, lines in enumerate(csvFile, start=1):
+            if line_num > 3:
+                if int(lines[6][5:7]) == month and int(lines[6][5:7]) == day:
+                    if lines[18] == ""
+                        continue
+                    ID = lines[18]
+                    Name = lines[5]
+                    res = f"{ID} {Name}"
+                    if res not in resultOTD:
+                        resultOTD.append(res)
