@@ -888,7 +888,7 @@ async def tcdat(ctx, btkID:str, yr:str):
     name = ""
     flag = False
     atcfID = []
-    with open('ibtracs.ALL.list.v04r00.csv', mode='r') as file:
+    with open('ibtracs.ALL.list.v04r01.csv', mode='r') as file:
         csvFile = csv.reader(file)
         for line_num, lines in enumerate(csvFile, start=1):
             if line_num > 3:
@@ -946,7 +946,7 @@ async def rammb(ctx, btkID:str, yr:str):
     name = ""
     flag = False
     atcfID = []
-    with open('ibtracs.ALL.list.v04r00.csv', mode='r') as file:
+    with open('ibtracs.ALL.list.v04r01.csv', mode='r') as file:
         csvFile = csv.reader(file)
         for line_num, lines in enumerate(csvFile, start=1):
             if line_num > 3:
@@ -1075,7 +1075,7 @@ async def ibtracs(ctx, btkID:str, yr:str):
     idl = False
     await ctx.send("Please wait. Due to my terrible potato laptop, the image may take a while to generate.")
     #Template to read the IBTRACS Data...
-    with open('ibtracs.ALL.list.v04r00.csv', mode='r') as file:
+    with open('ibtracs.ALL.list.v04r01.csv', mode='r') as file:
         csvFile = csv.reader(file)
         for line_num, lines in enumerate(csvFile, start=1):
             if line_num > 3:
@@ -1265,7 +1265,7 @@ async def otd(ctx, day:int, month:int):
     Name = ""
     resultOTD = []
     await ctx.send("Hold as the file is generated.")
-    with open('ibtracs.ALL.list.v04r00.csv', mode='r') as file:
+    with open('ibtracs.ALL.list.v04r01.csv', mode='r') as file:
         csvFile = csv.reader(file)
         for line_num, lines in enumerate(csvFile, start=1):
             if line_num > 3:
@@ -1300,7 +1300,7 @@ async def storm_name(ctx, name:str):
 
     resultYr = []
     await ctx.send("Hold as the database is accessed.")
-    with open('ibtracs.ALL.list.v04r00.csv', mode='r') as file:
+    with open('ibtracs.ALL.list.v04r01.csv', mode='r') as file:
         csvFile = csv.reader(file)
         for line_num, lines in enumerate(csvFile, start=1):
             if line_num > 3:
@@ -1337,7 +1337,7 @@ async def season(ctx, basin:str, yr:str):
     storm_name = []
     s_ID = ""
     #Template to read the IBTRACS Data...
-    with open('ibtracs.ALL.list.v04r00.csv', mode='r') as file:
+    with open('ibtracs.ALL.list.v04r01.csv', mode='r') as file:
         csvFile = csv.reader(file)
         for line_num, lines in enumerate(csvFile, start=1):
             if line_num > 3:
@@ -2840,7 +2840,7 @@ async def tcprofile(ctx, btkID:str, yr:str):
     vmax = -999
     await ctx.send("Please wait. Due to my terrible potato laptop, the image may take a while to generate.")
     #Template to read the IBTRACS Data...
-    with open('ibtracs.ALL.list.v04r00.csv', mode='r') as file:
+    with open('ibtracs.ALL.list.v04r01.csv', mode='r') as file:
         csvFile = csv.reader(file)
         for line_num, lines in enumerate(csvFile, start=1):
             if line_num > 3:
@@ -2970,7 +2970,7 @@ async def oldibtracs(ctx, btkID:str, yr:str):
     s_ID = ""
     idl = False
     #Template to read the IBTRACS Data...
-    with open('ibtracs.ALL.list.v04r00.csv', mode='r') as file:
+    with open('ibtracs.ALL.list.v04r01.csv', mode='r') as file:
         csvFile = csv.reader(file)
         for line_num, lines in enumerate(csvFile, start=1):
             if line_num > 3:
@@ -3603,7 +3603,7 @@ async def hursat(ctx, btkID:str, yr:str):
     #Load in the loops for finding the latitude and longitude...
     IBTRACS_ID = f"{btkID}{yr}"
     hursat_ID = ""
-    with open('ibtracs.ALL.list.v04r00.csv', mode='r') as file:
+    with open('ibtracs.ALL.list.v04r01.csv', mode='r') as file:
         csvFile = csv.reader(file)
         for line_num, lines in enumerate(csvFile, start=1):
             if line_num > 3:
