@@ -562,7 +562,7 @@ async def tcsst(ctx, btkID: str):
     current_date = datetime.now()
 
     # Subtract two days from the current date
-    two_days_ago = current_date - timedelta(days=2)
+    two_days_ago = current_date - timedelta(days=3)
 
     # Extract year, month, and day components from the two days ago date
     year = str(two_days_ago.year)
@@ -665,7 +665,7 @@ async def tcsst_custom(ctx, centerY:float, centerX:float, offset=0):
     current_date = datetime.now()
 
     # Subtract two days from the current date
-    two_days_ago = current_date - timedelta(days=2)
+    two_days_ago = current_date - timedelta(days=3)
 
     # Extract year, month, and day components from the two days ago date
     year = str(two_days_ago.year)
