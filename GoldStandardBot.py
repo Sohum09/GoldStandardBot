@@ -4594,7 +4594,7 @@ async def chappal(ctx):
 
 @bot.command(name='megaslop')
 async def megaslop(ctx):
-    image_path1 = 'chappal.webp'
+    image_path1 = 'gfsmegalop.webp'
 
     with open(image_path1, 'rb') as image_file:
         image = discord.File(image_file)
