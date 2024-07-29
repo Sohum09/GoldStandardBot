@@ -705,9 +705,31 @@ async def ersst(ctx, month:int, year:int):
     import os
     from matplotlib.colors import ListedColormap
     from PIL import Image
+    import sys
+    from urllib.request import build_opener
 
     await ctx.send("Please wait as the data loads.")
+    if year < 1854 or year > 2024:
+        await ctx.send("The data for this year does not exist.")
+        return
     
+    month_f = str(month).zfill(2)
+
+    opener = build_opener()
+    filelist = [
+        f'https://data.rda.ucar.edu/ds277.9/ersst.v5.nc/ersst.v5.{year}{month_f}.nc'
+    ]
+
+    for file in filelist:
+        ofile = os.path.basename(file)
+        sys.stdout.write("downloading " + ofile + " ... ")
+        sys.stdout.flush()
+        infile = opener.open(file)
+        outfile = open(ofile, "wb")
+        outfile.write(infile.read())
+        outfile.close()
+        sys.stdout.write("done\n")
+
     def image_to_hex_array(image_path, x_range, y_coord, exclude_colors):
         # Open the image
         img = Image.open(image_path)
@@ -752,19 +774,14 @@ async def ersst(ctx, month:int, year:int):
 
     # Create the colormap
     crw = ListedColormap(extracted_colors, name='crw')
-
-    if year < 1854 or year > 2024:
-        await ctx.send("The data for this year does not exist.")
-        return
     
-    month_f = str(month).zfill(2)
-    
-    url = f"https://www.ncei.noaa.gov/pub/data/cmb/ersst/v5/netcdf/ersst.v5.{year}{month_f}.nc"
+    #url = f"https://www.ncei.noaa.gov/pub/data/cmb/ersst/v5/netcdf/ersst.v5.{year}{month_f}.nc"
     destination = f'ersst.v5.{year}{month_f}.nc'
-
-    response = requests.get(url)
+    '''
+        response = requests.get(url)
     with open(destination, 'wb') as file:
         file.write(response.content)
+    '''
     #offset_value =  -0.009103 * year + 18.19 old algorithm if the new one goes wrong
     
     if year < 1901:
@@ -813,7 +830,6 @@ async def ersst(ctx, month:int, year:int):
     with open(image_path, 'rb') as image_file:
         image = discord.File(image_file)
         await ctx.send(file=image)
-
 
     os.remove(file_path)
     os.remove(image_path)
@@ -4809,6 +4825,14 @@ async def kohli(ctx):
 @bot.command(name='erick')
 async def erick(ctx):
     image_path = 'Erick.PNG'
+
+    with open(image_path, 'rb') as image_file:
+        image = discord.File(image_file)
+        await ctx.send(file=image)
+
+@bot.command(name='look')
+async def erick(ctx):
+    image_path = 'thelook.webp'
 
     with open(image_path, 'rb') as image_file:
         image = discord.File(image_file)
