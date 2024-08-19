@@ -456,8 +456,9 @@ async def mpi(ctx, basin:str):
         await ctx.send(file=discord.File(image_data, 'image.png'))
     else:
         await ctx.send("Error 404: The image either does not exist or is yet to be created.")
-@bot.command(name='tcpass')
-async def tcpass(ctx, btkID: str):
+
+@bot.command(name='tcpass_custom')
+async def tcpass_custom(ctx, latitude:float, longitude:float, width=4):
     import urllib3
     from bs4 import BeautifulSoup
     import json
@@ -471,56 +472,13 @@ async def tcpass(ctx, btkID: str):
     import math
     import os
     import numpy as np
-
-    btkID = btkID.lower()
+    
     await ctx.send("Please wait. Due to API service times, the figure may take a few seconds to generate.")
     urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
     http = urllib3.PoolManager(cert_reqs='CERT_NONE', assert_hostname=False)
 
-    def fetch_url(urlLink):
-        response = http.request('GET', urlLink)
-        return response.data.decode('utf-8')
-
-    def parse_data(html_content):
-        soup = BeautifulSoup(html_content, 'html.parser')
-        return soup.get_text()
-    
-    if btkID[:2] in ['sh', 'wp', 'io']:
-        btkUrl = f'https://www.ssd.noaa.gov/PS/TROP/DATA/ATCF/JTWC/b{btkID}2024.dat'
-    else:
-        btkUrl = f'https://www.ssd.noaa.gov/PS/TROP/DATA/ATCF/NHC/b{btkID}2024.dat'
-
-    btk_data = fetch_url(btkUrl)
-    parsed_data = parse_data(btk_data)
-    lines = parsed_data.split('\n')
-    cdx, cdy, DateTime, timeCheck = [], [], [], []
-    stormName = ""
-
-    for line in lines:
-        if line.strip():
-            parameters = line.split(',')
-            if parameters[6][-1] == 'S':
-                cdy.append((float(parameters[6][:-1].strip()) / 10) * -1)
-            else:
-                cdy.append(float(parameters[6][:-1].strip()) / 10)
-            if parameters[7][-1] == 'W':
-                cdx.append((float(parameters[7][:-1].strip()) / 10) * -1)
-            else:
-                cdx.append(float(parameters[7][:-1].strip()) / 10)
-            timeCheck.append((parameters[2][-2:].strip()))
-            date = parameters[2].strip()
-            date = f'{date[:4]}-{date[4:6]}-{date[6:8]} {timeCheck[-1]}:00:00'
-            DateTime.append(date)
-            stormName = parameters[27].strip()
-
-    centerX, centerY = cdx[-1], cdy[-1]
-    
-    # Define the geographic point
-    latitude = centerY
-    longitude = centerX
-
     # Define the bounding box around the point
-    box_size = 10  # Bounding box size in degrees
+    box_size = 2*width  # Bounding box size in degrees
     upper_right = f"{latitude + box_size},{longitude + box_size}"
     lower_left = f"{latitude - box_size},{longitude - box_size}"
 
@@ -536,13 +494,15 @@ async def tcpass(ctx, btkID: str):
 
     SATELLITES = ["29522", "35951", "28054", "27424", "25994", "39260", "43010", "41882",
                 "38337", "38771", "43689", "54234", "43013", "33591", "28654", "37849",
-                "39574", "56753", "56442", "56444", "56754", "39634"]
-
+                "39574", "39634", "36036", "40376", 
+                "44322", "44324", "44323", "32382"]
+    #Archived TROPICS Passes: "56753", "56442", "56444", "56754", 
     satelliteMap = {"28054":"DMSP F16", "29522":"DMSP F17", "35951":"DMSP F18", "27424":"AQUA",
                     "25994": "TERRA", "39260":"FENGYUN 3C", "43010":"FENGYUN 3D", "41882":"FENGYUN 4A",
                     "38337":"GCOM-W1", "38771":"METOP-B", "43689":"METOP-C", "54234":"NOAA 21", "43013":"NOAA 20",
                     "33591":"NOAA 19", "28654":"NOAA 18", "37849":"SUOMI NPP", "39574":"GPM-CORE", 
-                    "56753":"TROPICS-03", "56442":"TROPICS-05", "56444":"TROPICS-06", "56754":"TROPICS-07", "39634":"SENTINEL-1A"}
+                    "56753":"TROPICS-03", "56442":"TROPICS-05", "56444":"TROPICS-06", "56754":"TROPICS-07", "39634":"SENTINEL-1A",
+                    "36036": "SMOS", "40376":"SMAP", "44322":"RCM-1", "44324":"RCM-2", "44323":"RCM-3", "32382":"RADARSAT-2"}
 
 
     # Function to fetch data for a single satellite
@@ -604,6 +564,230 @@ async def tcpass(ctx, btkID: str):
             min_distance = float('inf')
             min_distance_point = None
             min_distance_date = None
+            plotted_points = []
+            
+            for point in data:
+                try:
+                    lat, lon = float(point[2]), float(point[3])
+                    if -90 <= lat <= 90 and -180 <= lon <= 180:
+                        distance = haversine(latitude, longitude, lat, lon)
+                        if distance <= (width*100) and distance < min_distance:
+                            min_distance = distance
+                            min_distance_point = (lat, lon)
+                            min_distance_date = datetime.strptime(point[0], '%Y-%m-%dT%H:%M:%SZ').strftime('%d/%m\n%H:%M UTC')
+                        
+                        lats.append(lat)
+                        lons.append(lon)
+                        plotted_points.append(ax.plot(lon, lat, 'o',color=color, markersize=0.01))
+                except ValueError as e:
+                    print(f"ValueError for point {point}: {e}")
+            
+            if lats and lons:
+                min_distance = "{:.2f}".format(min_distance)
+                label_text = f"{satelliteMap.get(satellite, satellite)}\n{min_distance_date}\n{min_distance} km"
+                plotted_path = ax.plot(lons, lats, color=color, linewidth=1, linestyle='-', alpha=1, label=label_text)
+            
+            if min_distance_point:
+                min_lat, min_lon = min_distance_point
+                ax.plot(min_lon, min_lat, 'x', color='r', markersize=5)
+                #min_distance = "{:.2f}".format(min_distance)
+                #ax.text(min_lon, min_lat, min_distance_date+f"\n{min_distance} km", fontsize=8, color='red', ha='right')
+            else:
+                # Remove plotted points if min_distance_point is not found
+                for plot in plotted_points:
+                    plot.pop().remove()
+                # Remove plotted path if min_distance_point is not found
+                if 'plotted_path' in locals():
+                    plotted_path.pop(0).remove()
+    
+    ax.plot(longitude, latitude, 'x', color='k', markersize=5)
+
+    # Set map extent to show the area of interest
+    ax.set_extent([longitude - width, longitude + width, latitude - width, latitude + width])
+    gls = ax.gridlines(draw_labels=True, linewidth=0.5, linestyle='--', color='gray')
+    gls.top_labels = False   # suppress top labels
+    gls.right_labels = False  # suppress right labels
+
+    plt.title(f"Expected pass times for ({latitude}, {longitude})\n (< {width*100}km from Center)")
+    plt.legend(
+    loc='upper center',            # Place the legend at the top center of the bounding box
+    bbox_to_anchor=(0.5, -0.15),   # Adjust the legend to be at the bottom of the box
+    fontsize='small',              # Set the font size
+    ncol=len(SATELLITES),          # Display the legend items in a single horizontal row
+    title='Satellites'             # Set the title of the legend
+    )
+
+    r = np.random.randint(1, 10)
+    image_path = f'TC_PASS{r}.png'
+    plt.savefig(image_path, format='png', bbox_inches='tight')
+    plt.close()
+
+    with open(image_path, 'rb') as image_file:
+        image = discord.File(image_file)
+        await ctx.send(file=image)
+
+    os.remove(image_path)   
+
+@bot.command(name='tcpass')
+async def tcpass(ctx, btkID: str):
+    import urllib3
+    from bs4 import BeautifulSoup
+    import json
+    import urllib3
+    from datetime import datetime, timedelta
+    from urllib.parse import quote
+    import matplotlib.pyplot as plt
+    import cartopy.crs as ccrs
+    import cartopy.feature as cfeature
+    import matplotlib.cm as cm
+    import math
+    import os
+    import numpy as np
+    
+    btkID = btkID.lower()
+    await ctx.send("Please wait. Due to API service times, the figure may take a few seconds to generate.")
+    urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+    http = urllib3.PoolManager(cert_reqs='CERT_NONE', assert_hostname=False)
+
+    def fetch_url(urlLink):
+        response = http.request('GET', urlLink)
+        return response.data.decode('utf-8')
+
+    def parse_data(html_content):
+        soup = BeautifulSoup(html_content, 'html.parser')
+        return soup.get_text()
+    
+    if btkID[:2] in ['sh', 'wp', 'io']:
+        if btkID[:2] == 'sh':
+            from datetime import datetime
+            basinDate = datetime.now()
+            basinmonth = basinDate.month
+            if basinmonth >= 7:
+                btkUrl = f'https://www.ssd.noaa.gov/PS/TROP/DATA/ATCF/JTWC/b{btkID}2025.dat'
+            else:
+                btkUrl = f'https://www.ssd.noaa.gov/PS/TROP/DATA/ATCF/JTWC/b{btkID}2024.dat'
+        else:
+            btkUrl = f'https://www.ssd.noaa.gov/PS/TROP/DATA/ATCF/JTWC/b{btkID}2024.dat'
+    else:
+        btkUrl = f'https://www.ssd.noaa.gov/PS/TROP/DATA/ATCF/NHC/b{btkID}2024.dat'
+
+    btk_data = fetch_url(btkUrl)
+    parsed_data = parse_data(btk_data)
+    lines = parsed_data.split('\n')
+    cdx, cdy, DateTime, timeCheck = [], [], [], []
+    stormName = ""
+
+    for line in lines:
+        if line.strip():
+            parameters = line.split(',')
+            if parameters[6][-1] == 'S':
+                cdy.append((float(parameters[6][:-1].strip()) / 10) * -1)
+            else:
+                cdy.append(float(parameters[6][:-1].strip()) / 10)
+            if parameters[7][-1] == 'W':
+                cdx.append((float(parameters[7][:-1].strip()) / 10) * -1)
+            else:
+                cdx.append(float(parameters[7][:-1].strip()) / 10)
+            timeCheck.append((parameters[2][-2:].strip()))
+            date = parameters[2].strip()
+            date = f'{date[:4]}-{date[4:6]}-{date[6:8]} {timeCheck[-1]}:00:00'
+            DateTime.append(date)
+            stormName = parameters[27].strip()
+
+    centerX, centerY = cdx[-1], cdy[-1]
+    
+    # Define the geographic point
+    latitude = centerY
+    longitude = centerX
+
+    # Define the bounding box around the point
+    box_size = 10  # Bounding box size in degrees
+    upper_right = f"{latitude + box_size},{longitude + box_size}"
+    lower_left = f"{latitude - box_size},{longitude - box_size}"
+
+    # Get the current UTC time
+    now = datetime.utcnow()
+    start_time = now.strftime('%Y-%m-%dT%H:%M:%SZ')
+
+    # Calculate the end time (6 hours from now)
+    end_time = (now + timedelta(hours=6)).strftime('%Y-%m-%dT%H:%M:%SZ')
+
+    # Initialize the HTTP client
+    http = urllib3.PoolManager()
+
+    SATELLITES = ["29522", "35951", "28054", "27424", "25994", "39260", "43010", "41882",
+                "38337", "38771", "43689", "54234", "43013", "33591", "28654", "37849",
+                "39574", "39634", "36036", "40376", 
+                "44322", "44324", "44323", "32382"]
+    #Archived TROPICS Passes: "56753", "56442", "56444", "56754", 
+    satelliteMap = {"28054":"DMSP F16", "29522":"DMSP F17", "35951":"DMSP F18", "27424":"AQUA",
+                    "25994": "TERRA", "39260":"FENGYUN 3C", "43010":"FENGYUN 3D", "41882":"FENGYUN 4A",
+                    "38337":"GCOM-W1", "38771":"METOP-B", "43689":"METOP-C", "54234":"NOAA 21", "43013":"NOAA 20",
+                    "33591":"NOAA 19", "28654":"NOAA 18", "37849":"SUOMI NPP", "39574":"GPM-CORE", 
+                    "56753":"TROPICS-03", "56442":"TROPICS-05", "56444":"TROPICS-06", "56754":"TROPICS-07", "39634":"SENTINEL-1A",
+                    "36036": "SMOS", "40376":"SMAP", "44322":"RCM-1", "44324":"RCM-2", "44323":"RCM-3", "32382":"RADARSAT-2"}
+
+
+    # Function to fetch data for a single satellite
+    def fetch_data_for_satellite(satellite):
+        url = (
+            f"http://sips.ssec.wisc.edu/orbnav/api/v1/overpass.json?"
+            f"sat={quote(satellite)}"
+            f"&start={quote(start_time)}&end={quote(end_time)}"
+            f"&ur={quote(upper_right)}&ll={quote(lower_left)}"
+        )
+        
+        # Make the request
+        response = http.request('GET', url)
+        
+        # Print raw response data for debugging
+        response_data = response.data.decode('utf-8')
+        #print(f"Raw response data for {satellite}:", response_data)
+        
+        # Check the content type
+        if response.headers.get('Content-Type') == 'application/json':
+            try:
+                # Parse the JSON response
+                data = json.loads(response_data)
+                #print(f"Parsed data for {satellite}:", data)
+                return data.get('data', [])  # Return the parsed data list
+            except json.JSONDecodeError as e:
+                print(f"JSON decode error for {satellite}:", e)
+                return None
+        else:
+            print(f"Unexpected content type for {satellite}:", response.headers.get('Content-Type'))
+            return None
+        
+        # Function to calculate distance between two coordinates
+    def haversine(lat1, lon1, lat2, lon2):
+        radius = 6378.137  # Radius of the Earth in km
+        dlat = math.radians(lat2 - lat1)
+        dlon = math.radians(lon2 - lon1)
+        a = (math.sin(dlat / 2) ** 2 +
+            math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) *
+            math.sin(dlon / 2) ** 2)
+        c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+        return radius * c
+    
+    # List to hold all overpass points
+    fig = plt.figure(figsize=(10, 5))
+    ax = plt.axes(projection=ccrs.PlateCarree())
+    ax.add_feature(cfeature.COASTLINE)
+    ax.add_feature(cfeature.BORDERS, linestyle=':')
+
+    # Use a colormap to get distinct colors
+    colors = cm.tab20b.colors + cm.tab20c.colors
+
+    await ctx.send("Data recieved, plotting points...")
+    for idx, satellite in enumerate(SATELLITES):
+        data = fetch_data_for_satellite(satellite)
+        if data:
+            color = colors[idx % len(colors)]  # Get a color from the colormap
+            lats, lons = [], []
+            min_distance = float('inf')
+            min_distance_point = None
+            min_distance_date = None
+            plotted_points = []
             
             for point in data:
                 try:
@@ -613,21 +797,31 @@ async def tcpass(ctx, btkID: str):
                         if distance <= 400 and distance < min_distance:
                             min_distance = distance
                             min_distance_point = (lat, lon)
-                            min_distance_date = datetime.strptime(point[0], '%Y-%m-%dT%H:%M:%SZ').strftime('%d/%m\n%H:%M Z')
-                            ax.plot(lon, lat, 'o', color=color, markersize=2)
+                            min_distance_date = datetime.strptime(point[0], '%Y-%m-%dT%H:%M:%SZ').strftime('%d/%m\n%H:%M UTC')
+                        
                         lats.append(lat)
                         lons.append(lon)
-                        
+                        plotted_points.append(ax.plot(lon, lat, 'o',color=color, markersize=0.01))
                 except ValueError as e:
                     print(f"ValueError for point {point}: {e}")
-
-            if lats and lons and min_distance_point:
-                ax.plot(lons, lats, color=color, linewidth=1, linestyle='-', alpha=0.7, label=satelliteMap.get(satellite, satellite))
+            
+            if lats and lons:
+                min_distance = "{:.2f}".format(min_distance)
+                label_text = f"{satelliteMap.get(satellite, satellite)}\n{min_distance_date}\n{min_distance} km"
+                plotted_path = ax.plot(lons, lats, color=color, linewidth=1, linestyle='-', alpha=1, label=label_text)
             
             if min_distance_point:
                 min_lat, min_lon = min_distance_point
                 ax.plot(min_lon, min_lat, 'x', color='r', markersize=5)
-                ax.text(min_lon, min_lat, min_distance_date, fontsize=8, color='red', ha='right')
+                #min_distance = "{:.2f}".format(min_distance)
+                #ax.text(min_lon, min_lat, min_distance_date+f"\n{min_distance} km", fontsize=8, color='red', ha='right')
+            else:
+                # Remove plotted points if min_distance_point is not found
+                for plot in plotted_points:
+                    plot.pop().remove()
+                # Remove plotted path if min_distance_point is not found
+                if 'plotted_path' in locals():
+                    plotted_path.pop(0).remove()
     
     ax.plot(longitude, latitude, 'x', color='k', markersize=5)
 
@@ -638,7 +832,13 @@ async def tcpass(ctx, btkID: str):
     gls.right_labels = False  # suppress right labels
 
     plt.title(f"Expected pass times for {btkID.upper()} {stormName} (< 500km from Center)")
-    plt.legend(loc='center left', bbox_to_anchor=(1, 0.5), fontsize='small', ncol=1, title='Satellites')
+    plt.legend(
+    loc='upper center',            # Place the legend at the top center of the bounding box
+    bbox_to_anchor=(0.5, -0.15),   # Adjust the legend to be at the bottom of the box
+    fontsize='small',              # Set the font size
+    ncol=len(SATELLITES),          # Display the legend items in a single horizontal row
+    title='Satellites'             # Set the title of the legend
+    )
     r = np.random.randint(1, 10)
     image_path = f'TC_PASS{r}.png'
     plt.savefig(image_path, format='png', bbox_inches='tight')
@@ -663,6 +863,8 @@ async def tcsst(ctx, btkID: str):
     import io
     import os
     from datetime import datetime, timedelta
+    from matplotlib import cm
+    from matplotlib.colors import ListedColormap, LinearSegmentedColormap
 
     btkID = btkID.lower()
     await ctx.send("Please wait. Due to my terrible potato laptop, the image may take a while to generate.")
@@ -676,6 +878,30 @@ async def tcsst(ctx, btkID: str):
     def parse_data(html_content):
         soup = BeautifulSoup(html_content, 'html.parser')
         return soup.get_text()
+
+    def crw():
+        newcmp = LinearSegmentedColormap.from_list("", [
+        (0/40, '#48003f'),
+        (5/40, "#910087"),
+        (5/40, "#280096"),
+        (10/40, "#6a5bbf"),
+        (10/40, "#000082"),
+        (15/40, "#005aff"),
+        (15/40, "#0075ff"),
+        (20/40, "#00edff"),
+        (20/40, "#00ff00"),
+        (25/40, "#00a100"),
+        (25/40, "#dff200"),
+        (30/40, "#d56900"),
+        (30/40, "#dc5a00"),
+        (35/40, "#730000"),
+        (35/40, "#c86432"),
+        (40/40, "#542e15")])
+        vmax = 40
+        vmin = 0
+
+        return newcmp, vmax, vmin
+
 
     async def send_image(image_path):
         with open(image_path, 'rb') as image_file:
@@ -691,9 +917,10 @@ async def tcsst(ctx, btkID: str):
         gls.right_labels = False  # suppress right labels
 
         # Plot SST data from 10 degC to 35 degC
-        c = ax.contourf(lon, lat, sst, levels=np.arange(10, 35, 1), transform=ccrs.PlateCarree(), cmap='jet', extend='both')
+        col, vm, vn = crw()
+        c = ax.contourf(lon, lat, sst, levels=np.arange(vn, vm, 1), transform=ccrs.PlateCarree(), cmap=col, extend='both')
         # Add small contour lines for all SSTs
-        contour = ax.contour(lon, lat, sst, levels=np.arange(10, 35, 1), colors='black', linewidths=0.5, transform=ccrs.PlateCarree())
+        contour = ax.contour(lon, lat, sst, levels=np.arange(vn, vm, 1), colors='black', linewidths=0.5, transform=ccrs.PlateCarree())
         # Add a contour line for 26 degrees Celsius
         contour_level = 26
         contour = ax.contour(lon, lat, sst, levels=[contour_level], colors='black', linewidths=2, transform=ccrs.PlateCarree())
@@ -721,7 +948,16 @@ async def tcsst(ctx, btkID: str):
         os.remove(image_path)
 
     if btkID[:2] in ['sh', 'wp', 'io']:
-        btkUrl = f'https://www.ssd.noaa.gov/PS/TROP/DATA/ATCF/JTWC/b{btkID}2024.dat'
+        if btkID[:2] == 'sh':
+            from datetime import datetime
+            basinDate = datetime.now()
+            basinmonth = basinDate.month
+            if basinmonth >= 7:
+                btkUrl = f'https://www.ssd.noaa.gov/PS/TROP/DATA/ATCF/JTWC/b{btkID}2025.dat'
+            else:
+                btkUrl = f'https://www.ssd.noaa.gov/PS/TROP/DATA/ATCF/JTWC/b{btkID}2024.dat'
+        else:
+            btkUrl = f'https://www.ssd.noaa.gov/PS/TROP/DATA/ATCF/JTWC/b{btkID}2024.dat'
     else:
         btkUrl = f'https://www.ssd.noaa.gov/PS/TROP/DATA/ATCF/NHC/b{btkID}2024.dat'
 
@@ -797,6 +1033,8 @@ async def tcsst_custom(ctx, centerY:float, centerX:float, offset=0):
     import io
     import os
     from datetime import datetime, timedelta
+    from matplotlib import cm
+    from matplotlib.colors import ListedColormap, LinearSegmentedColormap
 
     if centerY < -90 or centerY > 90 or centerX > 179.99 or centerX < -179.99:
         await ctx.send("Out of bounds!")
@@ -805,6 +1043,29 @@ async def tcsst_custom(ctx, centerY:float, centerX:float, offset=0):
     await ctx.send("Please wait. Due to my terrible potato laptop, the image may take a while to generate.")
     urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
     http = urllib3.PoolManager(cert_reqs='CERT_NONE', assert_hostname=False)
+
+    def crw():
+        newcmp = LinearSegmentedColormap.from_list("", [
+        (0/40, '#48003f'),
+        (5/40, "#910087"),
+        (5/40, "#280096"),
+        (10/40, "#6a5bbf"),
+        (10/40, "#000082"),
+        (15/40, "#005aff"),
+        (15/40, "#0075ff"),
+        (20/40, "#00edff"),
+        (20/40, "#00ff00"),
+        (25/40, "#00a100"),
+        (25/40, "#dff200"),
+        (30/40, "#d56900"),
+        (30/40, "#dc5a00"),
+        (35/40, "#730000"),
+        (35/40, "#c86432"),
+        (40/40, "#542e15")])
+        vmax = 40
+        vmin = 0
+
+        return newcmp, vmax, vmin
 
     async def send_image(image_path):
         with open(image_path, 'rb') as image_file:
@@ -820,9 +1081,10 @@ async def tcsst_custom(ctx, centerY:float, centerX:float, offset=0):
         gls.right_labels = False  # suppress right labels
 
         # Plot SST data from 10 degC to 35 degC
-        c = ax.contourf(lon, lat, sst, levels=np.arange(10, 35, 1), transform=ccrs.PlateCarree(), cmap='jet', extend='both')
+        col, vm, vn = crw()
+        c = ax.contourf(lon, lat, sst, levels=np.arange(vn, vm, 1), transform=ccrs.PlateCarree(), cmap=col, extend='both')
         # Add small contour lines for all SSTs
-        contour = ax.contour(lon, lat, sst, levels=np.arange(10, 35, 1), colors='black', linewidths=0.5, transform=ccrs.PlateCarree())
+        contour = ax.contour(lon, lat, sst, levels=np.arange(vn, vm, 1), colors='black', linewidths=0.5, transform=ccrs.PlateCarree())
         # Add a contour line for 26 degrees Celsius
         contour_level = 26
         contour = ax.contour(lon, lat, sst, levels=[contour_level], colors='black', linewidths=2, transform=ccrs.PlateCarree())
@@ -2233,7 +2495,7 @@ async def smap(ctx, btkID, nodeType:str):
     import xarray as xr
     import matplotlib.pyplot as plt
     import cartopy.crs as ccrs
-    from datetime import datetime
+    from datetime import datetime, timedelta
     import requests
     from matplotlib.lines import Line2D
     import os
@@ -2252,6 +2514,7 @@ async def smap(ctx, btkID, nodeType:str):
     def parse_data(html_content):
         soup = BeautifulSoup(html_content, 'html.parser')
         return soup.get_text()
+    
     btkID = btkID.lower()
     nodeType = nodeType.upper()
     if btkID[:2] in ['sh', 'wp', 'io']:
@@ -2264,31 +2527,32 @@ async def smap(ctx, btkID, nodeType:str):
 
     lines = parsed_data.split('\n')
 
-    cdx, cdy, winds, status, timeCheck, pres, DateTime, r34 = [], [], [], [], [], [], [], []
-    stormName = ""
-
+    cdx, cdy = [], []
     for line in lines:
         if line.strip():
             parameters = line.split(',')
             if parameters[6][-1] == 'S':
-                cdy.append((float(parameters[6][:-1].strip()) / 10)*-1)
+                cdy.append((float(parameters[6][:-1].strip()) / 10) * -1)
             else:
                 cdy.append(float(parameters[6][:-1].strip()) / 10)
         
             if parameters[7][-1] == 'W':
-                cdx.append((float(parameters[7][:-1].strip()) / 10)*-1)
+                cdx.append((float(parameters[7][:-1].strip()) / 10) * -1)
             else:
                 cdx.append(float(parameters[7][:-1].strip()) / 10)
 
     print(cdx, "\n", cdy)
-    current_datetime = datetime.now()
-    year = str(current_datetime.year)
-    month = str(current_datetime.month).zfill(2)
-    day = str(current_datetime.day).zfill(2)
+    current_datetime = datetime.utcnow()
+
+    def get_formatted_date(dt):
+        year = str(dt.year)
+        month = str(dt.month).zfill(2)
+        day = str(dt.day).zfill(2)
+        return year, month, day
 
     # Define the storm's coordinates
-    storm_lat = float(cdy[-1])  # Example latitude
-    storm_lon = float(cdx[-1]) if float(cdx[-1])>0 else 360 + float(cdx[-1])  # Example longitude
+    storm_lat = float(cdy[-1])
+    storm_lon = float(cdx[-1]) if float(cdx[-1]) > 0 else 360 + float(cdx[-1])
 
     # Calculate latitude and longitude bounds for the bounding box
     lat_min = storm_lat - 10
@@ -2296,367 +2560,130 @@ async def smap(ctx, btkID, nodeType:str):
     lon_min = storm_lon - 10
     lon_max = storm_lon + 10
 
-    url = f'https://data.remss.com/smap/wind/L3/v01.0/daily/NRT/{year}/RSS_smap_wind_daily_{year}_{month}_{day}_NRT_v01.0.nc'
+    data_found = False
+    retries = 0
 
-    destination = f'smap{year}{month}.nc'
+    while not data_found and retries < 1:
+        year, month, day = get_formatted_date(current_datetime)
+        url = f'https://data.remss.com/smap/wind/L3/v01.0/daily/NRT/{year}/RSS_smap_wind_daily_{year}_{month}_{day}_NRT_v01.0.nc'
+        destination = f'smap{year}{month}{day}.nc'
+        print(f"Trying to download data for {year}-{month}-{day}")
 
-    response = requests.get(url)
-    with open(destination, 'wb') as file:
-        file.write(response.content)
+        response = requests.get(url)
+        with open(destination, 'wb') as file:
+            file.write(response.content)
 
-    # Open the NetCDF file using xarray
-    ds = xr.open_dataset(destination, decode_times=False)
+        # Open the NetCDF file using xarray
+        ds = xr.open_dataset(destination, decode_times=False)
 
-    # Extract the wind variable
-    wind = ds['wind']
+        # Extract the wind variable
+        wind = ds['wind']
 
-    # Extract wind data within the bounding box
-    wind_bounded = wind.sel(lat=slice(lat_min, lat_max), lon=slice(lon_min, lon_max))
+        # Extract wind data within the bounding box
+        wind_bounded = wind.sel(lat=slice(lat_min, lat_max), lon=slice(lon_min, lon_max))
+
+        # Check if wind data is available within the bounding box
+        if not wind_bounded.isnull().all():
+            data_found = True
+        else:
+            # If no data, remove the downloaded file and decrement the date by 1 day
+            ds.close()
+            os.remove(destination)
+            current_datetime -= timedelta(days=1)
+            retries += 1
+
+    if not data_found:
+        await ctx.send("No data available within the bounding box for the past day.")
+        return
+
     await ctx.send("Generating data if available...")
 
-    # Check if wind data is available within the bounding box
-    if len(wind_bounded.lat) == 0 or len(wind_bounded.lon) == 0:
-        await ctx.send("No data available within the bounding box.")
-        ds.close()
-        os.remove(destination)
+    nodal = 0 if nodeType == 'ASC' else 1
+
+    # Find the nearest latitude and longitude values in the dataset
+    nearest_lat_index = np.abs(ds.lat.values - storm_lat).argmin()
+    nearest_lon_index = np.abs(ds.lon.values - storm_lon).argmin()
+
+    minute_data = ds.minute[nearest_lat_index, nearest_lon_index]
+    print(minute_data)
+
+    # Access the minute data for the nearest coordinate
+    minute_data = ds.minute.isel(node=nodal).values[nearest_lat_index, nearest_lon_index]
+    timePass = ""
+
+    # Check if minute data is available
+    if np.isnan(minute_data):
+        print("No minute data available for the nearest coordinate.")
+        timePass += "NaN"
     else:
-        nodal = 0 if nodeType == 'ASC' else 1
+        # Print the minute data value
+        print("Minute data value for the nearest coordinate:", minute_data)
+        hr = str(int(minute_data) // 60).zfill(2)
+        min = str(int(minute_data) % 60).zfill(2)
+        timePass += f"{hr}{min} UTC"
 
-        # Find the nearest latitude and longitude values in the dataset
-        nearest_lat_index = np.abs(ds.lat.values - storm_lat).argmin()
-        nearest_lon_index = np.abs(ds.lon.values - storm_lon).argmin()
+    # Find the maximum wind value within the bounding box
+    max_wind_value = wind_bounded.max()
 
-        minute_data = ds.minute[nearest_lat_index, nearest_lon_index]
-        print(minute_data)
+    # Create the plot
+    fig = plt.figure(figsize=(10, 6))
+    ax = plt.axes(projection=ccrs.PlateCarree())
 
-        # Access the minute data for the nearest coordinate
-        minute_data = ds.minute.isel(node=nodal).values[nearest_lat_index, nearest_lon_index]
-        timePass=""
+    # Plot wind data using pcolormesh
+    mesh = ax.pcolormesh(wind.lon, wind.lat, (wind.isel(node=nodal)) * 1.944, transform=ccrs.PlateCarree(), cmap='gist_ncar', vmin=0, vmax=150)
+    contour_17 = ax.contour(wind.lon, wind.lat, wind.isel(node=nodal), levels=[17], colors='black', transform=ccrs.PlateCarree())
+    contour_25 = ax.contour(wind.lon, wind.lat, wind.isel(node=nodal), levels=[25], colors='green', transform=ccrs.PlateCarree())
+    contour_32 = ax.contour(wind.lon, wind.lat, wind.isel(node=nodal), levels=[32], colors='red', transform=ccrs.PlateCarree())
 
-        # Check if minute data is available
-        if np.isnan(minute_data):
-            print("No minute data available for the nearest coordinate.")
-            timePass += "NaN"
-        else:
-            # Print the minute data value
-            print("Minute data value for the nearest coordinate:", minute_data)
-            hr = str(int(minute_data) // 60).zfill(2)
-            min = str(int(minute_data) % 60).zfill(2)
-            timePass += f"{hr}{min} UTC"
+    # Add coastlines
+    ax.coastlines()
 
-        # Find the maximum wind value within the bounding box
-        max_wind_value = wind_bounded.max()
+    # Add gridlines
+    gls = ax.gridlines(draw_labels=True, linewidth=0.5, linestyle='--', color='gray')
+    gls.top_labels = False  # suppress top labels
+    gls.right_labels = False  # suppress right labels
 
-        # Create the plot
-        fig = plt.figure(figsize=(10, 6))
-        ax = plt.axes(projection=ccrs.PlateCarree())
+    # Set the extent of the plot to zoom into the bounding box
+    ax.set_extent([lon_min, lon_max, lat_min, lat_max], crs=ccrs.PlateCarree())
 
-        # Plot wind data using pcolormesh
-        mesh = ax.pcolormesh(wind.lon, wind.lat, (wind.isel(node=nodal))*1.944, transform=ccrs.PlateCarree(), cmap='gist_ncar', vmin=0, vmax=150)
-        contour_17 = ax.contour(wind.lon, wind.lat, wind.isel(node=nodal), levels=[17], colors='black', transform=ccrs.PlateCarree())
-        contour_25 = ax.contour(wind.lon, wind.lat, wind.isel(node=nodal), levels=[25], colors='green', transform=ccrs.PlateCarree())
-        contour_32 = ax.contour(wind.lon, wind.lat, wind.isel(node=nodal), levels=[32], colors='red', transform=ccrs.PlateCarree())
-        
-        # Add coastlines
-        ax.coastlines()
+    # Add title
+    plt.title(f'SMAP SFC Winds\nTime: {timePass}, {year}/{month}/{day}', loc='left', fontsize=7)
 
-        # Add gridlines
-        gls = ax.gridlines(draw_labels=True, linewidth=0.5, linestyle='--', color='gray')
-        gls.top_labels=False   # suppress top labels
-        gls.right_labels=False # suppress right labels
+    # Add colorbar
+    cbar = plt.colorbar(mesh, ax=ax, shrink=0.5, extend='both')
+    cbar.set_label('Wind Speed (kts)')
+    # Print the maximum wind value within the bounding box
+    max_wind_value = max_wind_value.values.item() * 1.944  # Get the raw value
 
-        # Set the extent of the plot to zoom into the bounding box
-        ax.set_extent([lon_min, lon_max, lat_min, lat_max], crs=ccrs.PlateCarree())
+    def oneMin(raw_SMAP):
+        processed_SMAP = (362.644732816453 * raw_SMAP + 2913.62505913216) / 380.88384339523
 
-        # Add title
-        plt.title(f'SMAP SFC Winds\nTime: {timePass}, {year}/{month}/{day}', loc='left', fontsize=7)
+        # Display output:
+        processed_SMAP = "{:.2f}".format(processed_SMAP)
+        return processed_SMAP
 
-        # Add colorbar
-        cbar = plt.colorbar(mesh, ax=ax, shrink=0.5, extend='both')
-        cbar.set_label('Wind Speed (kts)')
-        # Print the maximum wind value within the bounding box
-        max_wind_value = max_wind_value.values.item()*1.944  # Get the raw value
-
-        def oneMin(raw_SMAP):
-            processed_SMAP = (362.644732816453 * raw_SMAP + 2913.62505913216) / 380.88384339523
-
-            #Display output:
-            processed_SMAP = "{:.2f}".format(processed_SMAP)
-            return processed_SMAP
-
-        
-        legend_elements = [
+    legend_elements = [
         Line2D([0], [0], marker='_', color='k', label='34kt winds', markersize=10),
         Line2D([0], [0], marker='_', color='g', label='50kt winds', markersize=10),
         Line2D([0], [0], marker='_', color='r', label='64kt winds', markersize=10),
-        ]
-        
+    ]
 
-        plt.title(f"Maximum 10-min wind value: {max_wind_value:.2f} kts, 1-min: {oneMin(max_wind_value)} kt", loc='right', fontsize=8)
-        ax.legend(handles=legend_elements, loc='upper right')
-        r = np.random.randint(1, 10)
-        image_path = f'Track_Map{r}.png'
-        plt.savefig(image_path, format='png', bbox_inches='tight')
-        plt.close()
-
-        with open(image_path, 'rb') as image_file:
-            image = discord.File(image_file)
-            await ctx.send(file=image)
-
-        os.remove(image_path)
-        ds.close()
-
-        os.remove(destination)  
-
-
-@bot.command(name='gridsat')
-async def gridsat(ctx, cdy:float, cdx:float, hour:str, day:str, month:str, year:str):
-    import xarray as xr
-    import matplotlib.pyplot as plt
-    import cartopy.crs as ccrs
-    import numpy as np
-    import requests
-    import os
-    await ctx.send("GRIDSAT-B1 is a large file and may take a few minutes to plot. Please be patient.")
-    def download_gridsat_nc(year, month, day, hour):
-        # Format year, month, day, and hour to have two digits
-        month = str(month).zfill(2)
-        day = str(day).zfill(2)
-        hour = str(hour).zfill(2)
-
-        # Construct the URL
-        url = f"https://www.ncei.noaa.gov/data/geostationary-ir-channel-brightness-temperature-gridsat-b1/access/{year}/GRIDSAT-B1.{year}.{month}.{day}.{hour}.v02r01.nc"
-        
-        # Download the file
-        response = requests.get(url)
-
-        # Check if the request was successful
-        if response.status_code == 200:
-            # Save the file
-            with open(destination, 'wb') as f:
-                f.write(response.content)
-            print("File downloaded successfully!")
-        else:
-            print("Failed to download file.")
-
-    destination = 'gridsatfile.nc'
-
-    download_gridsat_nc(year, month, day, hour)
-
-    # Load the NetCDF file
-    dataset = xr.open_dataset(destination, decode_times=False)
-
-    # Extract latitude, longitude, and infrared brightness temperature data
-    lat = dataset['lat']
-    lon = dataset['lon']
-    brightness_temp = dataset['irwin_cdr']
-
-    # Select a specific time slice (for example, the first time step)
-    brightness_temp_slice = brightness_temp.isel(time=0)
-
-    # Define the center latitude and longitude and the extent
-    center_lat = cdy # Center latitude
-    center_lon = cdx  # Center longitude
-    extent = 8  # Extent in degrees
-
-    # Calculate the bounds
-    lat_min, lat_max = center_lat - extent, center_lat + extent
-    lon_min, lon_max = center_lon - extent, center_lon + extent
-
-
-    # Select data within the specified bounds
-    selected_lat = lat[(lat >= lat_min) & (lat <= lat_max)]
-    selected_lon = lon[(lon >= lon_min) & (lon <= lon_max)]
-    selected_brightness_temp = brightness_temp_slice.sel(lat=slice(lat_min, lat_max), lon=slice(lon_min, lon_max))
-
-    # Select data within the specified bounds
-    selected_eye_temp = brightness_temp_slice.sel(lat=slice(center_lat-1, center_lat+1), lon=slice(center_lon-1, center_lon+1))
-
-    # Find the maximum temperature
-    max_temp = "{:.2f}".format(np.max(selected_eye_temp.values))
-
-    def kelvin_to_celsius(kelvin_temp):
-        celsius_temp = float(kelvin_temp) - 273.15
-        return "{:.2f}".format(celsius_temp)
-
-
-    # Create a map projection using Cartopy
-    projection = ccrs.PlateCarree()
-
-    # Plot the data on a map using pcolormesh
-    plt.figure(figsize=(10, 8))  # Set plot size
-    ax = plt.axes(projection=projection)
-    pcolor = ax.pcolormesh(selected_lon, selected_lat, selected_brightness_temp, cmap='CMRmap', transform=projection)
-    ax.coastlines()  # Add coastlines
-    ax.set_xlabel('Longitude (degrees_east)')
-    ax.set_ylabel('Latitude (degrees_north)')
-    ax.set_title(f'GRIDSAT B1 Brightness Temperature IR on {str(hour).zfill(2)}:00 UTC {str(day).zfill(2)}/{str(month).zfill(2)}/{year}\nCentered at ({center_lat}, {center_lon}) +/- 5 degrees, Max eye temp = {kelvin_to_celsius(max_temp)} °C')
-    gls = ax.gridlines(draw_labels=True, linewidth=0.5, linestyle='--', color='gray')
-    gls.top_labels = False   # suppress top labels
-    gls.right_labels = False  # suppress right labels
-    cbar = plt.colorbar(pcolor, label='Brightness Temperature (Kelvin)')
+    plt.title(f"Maximum 10-min wind value: {max_wind_value:.2f} kts, 1-min: {oneMin(max_wind_value)} kt", loc='right', fontsize=8)
+    ax.legend(handles=legend_elements, loc='upper right')
     r = np.random.randint(1, 10)
-    image_path = f'GRIDSAT{r}.png'
+    image_path = f'Track_Map{r}.png'
     plt.savefig(image_path, format='png', bbox_inches='tight')
-    plt.close()
+    await ctx.send("Here's the requested data.")
 
     with open(image_path, 'rb') as image_file:
         image = discord.File(image_file)
         await ctx.send(file=image)
 
     os.remove(image_path)
-    dataset.close()
+    ds.close()
+    os.remove(destination)
 
-    os.remove(destination)  
 
-
-@bot.command(name='smap_custom')
-async def smap_custom(ctx, cY:float, cX:float, nodeType:str):
-    import xarray as xr
-    import matplotlib.pyplot as plt
-    import cartopy.crs as ccrs
-    from datetime import datetime
-    import requests
-    from io import BytesIO
-    import numpy as np
-    import os
-    from matplotlib.lines import Line2D
-
-    if cY < -90 or cY > 90 or cX > 179.99 or cX < -179.99:
-        await ctx.send("Out of bounds!")
-        return
-
-    await ctx.send("Please hold as the data is generated.")
-    nodeType = nodeType.upper()
-    current_datetime = datetime.now()
-    year = str(current_datetime.year)
-    month = str(current_datetime.month).zfill(2)
-    day = str(current_datetime.day).zfill(2)
-
-    # Define the storm's coordinates
-    storm_lat = cY  # Example latitude
-    storm_lon = cX  # Example longitude
-    storm_lon = storm_lon if storm_lon > 0 else 360 + storm_lon
-
-    # Calculate latitude and longitude bounds for the bounding box
-    lat_min = storm_lat - 10
-    lat_max = storm_lat + 10
-    lon_min = storm_lon - 10
-    lon_max = storm_lon + 10
-
-    url = f'https://data.remss.com/smap/wind/L3/v01.0/daily/NRT/{year}/RSS_smap_wind_daily_{year}_{month}_{day}_NRT_v01.0.nc'
-
-    destination = f'ersst.v5.{year}{month}.nc'
-
-    response = requests.get(url)
-    with open(destination, 'wb') as file:
-        file.write(response.content)
-
-    await ctx.send("Generating data if available...")
-    # Open the NetCDF file using xarray
-    ds = xr.open_dataset(destination, decode_times=False)
-
-    # Extract the wind variable
-    wind = ds['wind']
-
-    # Extract wind data within the bounding box
-    wind_bounded = wind.sel(lat=slice(lat_min, lat_max), lon=slice(lon_min, lon_max))
-
-    # Check if wind data is available within the bounding box
-    if len(wind_bounded.lat) == 0 or len(wind_bounded.lon) == 0:
-        print("No data available within the bounding box.")
-    else:
-        nodal = 0 if nodeType == 'ASC' else 1
-
-        # Find the nearest latitude and longitude values in the dataset
-        nearest_lat_index = np.abs(ds.lat.values - storm_lat).argmin()
-        nearest_lon_index = np.abs(ds.lon.values - storm_lon).argmin()
-
-        minute_data = ds.minute[nearest_lat_index, nearest_lon_index]
-        print(minute_data)
-
-        minute_data = ds.minute[nearest_lat_index, nearest_lon_index]
-        print(minute_data)
-
-        # Access the minute data for the nearest coordinate
-        minute_data = ds.minute.isel(node=nodal).values[nearest_lat_index, nearest_lon_index]
-        timePass=""
-
-        # Check if minute data is available
-        if np.isnan(minute_data):
-            print("No minute data available for the nearest coordinate.")
-            timePass += "NaN"
-        else:
-            # Print the minute data value
-            print("Minute data value for the nearest coordinate:", minute_data)
-            hr = str(int(minute_data) // 60).zfill(2)
-            min = str(int(minute_data) % 60).zfill(2)
-            timePass += f"{hr}{min} UTC"
-
-        # Find the maximum wind value within the bounding box
-        max_wind_value = wind_bounded.max()
-
-        # Create the plot
-        fig = plt.figure(figsize=(10, 6))
-        ax = plt.axes(projection=ccrs.PlateCarree())
-
-        # Plot wind data using pcolormesh
-        mesh = ax.pcolormesh(wind.lon, wind.lat, (wind.isel(node=nodal))*1.944, transform=ccrs.PlateCarree(), cmap='gist_ncar', vmin=0, vmax=150)
-        contour_17 = ax.contour(wind.lon, wind.lat, wind.isel(node=nodal), levels=[17], colors='black', transform=ccrs.PlateCarree())
-        contour_25 = ax.contour(wind.lon, wind.lat, wind.isel(node=nodal), levels=[25], colors='green', transform=ccrs.PlateCarree())
-        contour_32 = ax.contour(wind.lon, wind.lat, wind.isel(node=nodal), levels=[32], colors='red', transform=ccrs.PlateCarree())
-
-        # Add coastlines
-        ax.coastlines()
-
-        gls = ax.gridlines(draw_labels=True, linewidth=0.5, linestyle='--', color='gray')
-        gls.top_labels=False   # suppress top labels
-        gls.right_labels=False # suppress right labels
-
-        # Set the extent of the plot to zoom into the bounding box
-        ax.set_extent([lon_min, lon_max, lat_min, lat_max], crs=ccrs.PlateCarree())
-
-        legend_elements = [
-        Line2D([0], [0], marker='_', color='k', label='34kt winds', markersize=10),
-        Line2D([0], [0], marker='_', color='g', label='50kt winds', markersize=10),
-        Line2D([0], [0], marker='_', color='r', label='64kt winds', markersize=10),
-        ]
-
-        # Add title
-        plt.title('SMAP', loc='left')
-        ax.legend(handles=legend_elements, loc='upper right')
-
-        # Add colorbar
-        cbar = plt.colorbar(mesh, ax=ax, shrink=0.5, extend='both')
-        cbar.set_label('Wind Speed (kts)')
-
-        # Print the maximum wind value within the bounding box
-        max_wind_value = max_wind_value.values.item()*1.944  # Get the raw value
-
-        def oneMin(raw_SMAP):
-            processed_SMAP = (362.644732816453 * raw_SMAP + 2913.62505913216) / 380.88384339523
-
-            #Display output:
-            processed_SMAP = "{:.2f}".format(processed_SMAP)
-            return processed_SMAP
-
-        plt.title(f'SMAP SFC Winds\nTime: {timePass}, {year}/{month}/{day}', loc='left', fontsize=7)
-        plt.title(f"Maximum 10-min wind value: {max_wind_value:.2f} kts, 1-min: {oneMin(max_wind_value)} kt", loc='right', fontsize=8)
-
-        # Show the plot
-        r = np.random.randint(1, 10)
-        image_path = f'Track_Map{r}.png'
-        plt.savefig(image_path, format='png', bbox_inches='tight')
-        plt.close()
-
-        with open(image_path, 'rb') as image_file:
-            image = discord.File(image_file)
-            await ctx.send(file=image)
-
-        os.remove(image_path)
-        ds.close()
-
-        os.remove(destination)  
 
 @bot.command(name='pdolatest')
 async def pdoLatest(ctx):
@@ -4289,11 +4316,11 @@ async def mcfetch(ctx, satellite:str, band:str, latitude:float, longitude:float,
     await ctx.send("Please be patient as the image loads.")
 
     if mag1 == "" and mag2 == "" and zoom == "":
-        url = f"https://mcfetch.ssec.wisc.edu/cgi-bin/mcfetch?dkey=API_KEY&satellite={satellite}&band={band}&output=JPG&date={year}-{month}-{day}&time={time[:2]}:{time[2:]}&eu={eu}&lat={latitude}+{longitude}&map=YES&size=600+600&mag=-1+-2"
+        url = f"https://mcfetch.ssec.wisc.edu/cgi-bin/mcfetch?dkey=MCFETCH_API_KEY&satellite={satellite}&band={band}&output=JPG&date={year}-{month}-{day}&time={time[:2]}:{time[2:]}&eu={eu}&lat={latitude}+{longitude}&map=YES&size=600+600&mag=-1+-2"
     elif zoom == "":
-        url = f"https://mcfetch.ssec.wisc.edu/cgi-bin/mcfetch?dkey=API_KEY&satellite={satellite}&band={band}&output=JPG&date={year}-{month}-{day}&time={time[:2]}:{time[2:]}&eu={eu}&lat={latitude}+{longitude}&map=YES&size=600+600&mag={mag1}+{mag2}"
+        url = f"https://mcfetch.ssec.wisc.edu/cgi-bin/mcfetch?dkey=MCFETCH_API_KEY&satellite={satellite}&band={band}&output=JPG&date={year}-{month}-{day}&time={time[:2]}:{time[2:]}&eu={eu}&lat={latitude}+{longitude}&map=YES&size=600+600&mag={mag1}+{mag2}"
     else:
-        url = f"https://mcfetch.ssec.wisc.edu/cgi-bin/mcfetch?dkey=API_KEY&satellite={satellite}&band={band}&output=JPG&date={year}-{month}-{day}&time={time[:2]}:{time[2:]}&eu={eu}&lat={latitude}+{longitude}&map=YES&size={zoom}+{zoom}&mag={mag1}+{mag2}"
+        url = f"https://mcfetch.ssec.wisc.edu/cgi-bin/mcfetch?dkey=MCFETCH_API_KEY&satellite={satellite}&band={band}&output=JPG&date={year}-{month}-{day}&time={time[:2]}:{time[2:]}&eu={eu}&lat={latitude}+{longitude}&map=YES&size={zoom}+{zoom}&mag={mag1}+{mag2}"
     
     if satellite in ['GOES16', 'GOES17', 'GOES18', 'GOES19', 'HIMAWARI8', 'HIMAWARI9']:
         coverage = coverage.upper()
@@ -4398,7 +4425,7 @@ async def zonal_anom(ctx):
     response = requests.get(url)
     await ctx.send("Please hold as the data loads.")
     if response.status_code == 200:
-        response = requests.get(url)
+        response = requests.get(url) 
         image_data = BytesIO(response.content)
 
         await ctx.send(file=discord.File(image_data, 'image.png'))
@@ -4421,7 +4448,7 @@ async def weatherunion(ctx, stn_id:str):
     # Define the headers with the required content-type and your API key
     headers = {
         'content-type': 'application/json',
-        'x-zomato-api-key': WEATHERUNION_API_KEY
+        'x-zomato-api-key': 'WEATHERUNION_API_KEY'
     }
 
     # Define the parameters (locality_id)
@@ -4457,7 +4484,7 @@ async def weatherunion(ctx, stn_id:str):
         await ctx.send(result)
     else:
         await ctx.send(f"Error: {response.status_code} - {response.reason}")
-
+        
 @bot.command(name='windplot')
 async def windplot(ctx, pres:str, hour:str, day:str, month:str, year:str, areaN=90, areaS=-90, areaW=-180, areaE=180, color='jet'):
     import cdsapi
@@ -4780,6 +4807,17 @@ async def reconplot(ctx, basin:str, aircraftType:str):
 
     os.remove(image_path)  
 
+@bot.command(name='tcprimed')
+async def tcprimed(ctx):
+    await ctx.send("https://colab.research.google.com/drive/18jAoFVesVHu6cYzfL7Jk7mY0GEHnzqyY?usp=sharing")
+
+@bot.command(name='land_degrade')
+async def land_degrade(ctx, v0:float, hour:float):
+    import math
+    v_t = v0 * math.exp(-0.044 * hour)
+    v_t = "{:.2f}".format(v_t)
+    await ctx.send(f"The extrapolated intensity {hour} hour(s) post landfall: {v_t} Kt")
+
 @bot.command(name='rhoades')
 async def rhoades(ctx):
     image_path1 = 'rhoades1.webp'
@@ -4970,13 +5008,6 @@ async def roastspac(ctx):
         image = discord.File(image_file)
         await ctx.send(file=image)
 
-@bot.command(name='roastwpac')
-async def roastwpac(ctx):
-    image_path = 'luke.webp'
-
-    with open(image_path, 'rb') as image_file:
-        image = discord.File(image_file)
-        await ctx.send(file=image)
 @bot.command(name='mangkhut')
 async def mangkhut(ctx):
     image_path = 'mangkhut.gif'
@@ -4994,6 +5025,14 @@ async def weaktight(ctx):
     "CENTER AND HAS A WEAK BUT TIGHT TROUGHING ASSOCIATED WITH A WAVE "+
     "PROPAGATING NORTHWESTWARD. THIS TIGHT TROUGH IS EVIDENT ON THE 272330Z "+
     "PARTIAL ASCAT-C PASS.```")
+    with open(image_path, 'rb') as image_file:
+        image = discord.File(image_file)
+        await ctx.send(file=image)
+
+@bot.command(name='roastwpac')
+async def roastwpac(ctx):
+    image_path = 'luke.webp'
+
     with open(image_path, 'rb') as image_file:
         image = discord.File(image_file)
         await ctx.send(file=image)
@@ -5102,4 +5141,4 @@ async def commandHelp(ctx):
     await ctx.send("For the full command list, consult the google document here:\n")
     await ctx.send(url)
 
-bot.run(AUTHENTICATION_TOKEN)
+bot.run(DISCORD_TOKEN)
