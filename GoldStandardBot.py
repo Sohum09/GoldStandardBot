@@ -5,6 +5,7 @@ intents = discord.Intents.default()
 intents.messages = True
 intents.reactions = True
 intents.message_content = True
+intents.dm_messages = True
 bot = commands.Bot(command_prefix='!', intents = intents)
 
 @bot.event
@@ -66,7 +67,7 @@ async def atcf(ctx, info=""):
 
     # Step 5: Display the parsed data in encoded format:
     if parsed_data == '':
-        await ctx.send(f"```No storms are active.```")
+        await ctx.send(f"```No storms are active. If you believe this is an error, use !atcfv2 as the backup command.```")
     else:
         await ctx.send(f"```{parsed_data}```")
 
@@ -149,6 +150,90 @@ async def atcf(ctx, info=""):
         await ctx.send(res)
 
 
+@bot.command(name='atcfv2', help='Display ATCF storm data from API')
+async def atcfv2(ctx, info=""):
+    import urllib3
+    import json
+
+    # Step 1: Fetch ATCF data from the new API
+    urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+    http = urllib3.PoolManager(cert_reqs='CERT_NONE')
+
+    atcf_api_url = 'https://api.knackwx.com/atcf/v2'
+
+    def fetch_atcf_data(url):
+        try:
+            response = http.request('GET', url)
+            return json.loads(response.data.decode('utf-8'))
+        except Exception as e:
+            return None
+
+    # Step 2: Display storm data
+    def display_storm_info(storm_data):
+        basin_list = {
+            'L': "North Atlantic Ocean", 
+            'E': "East Pacific Ocean", 
+            'C': "Central Pacific Ocean", 
+            'W': "Western Pacific Ocean", 
+            'A': "Arabian Sea",
+            'B': "Bay of Bengal",
+            'S': "South Indian Ocean",
+            'P': "South Pacific Ocean"
+        }
+
+        def designation(basin, winds):
+            winds = int(winds)
+            if winds >= 130 and basin == 'W':
+                return "Super Typhoon"
+            elif winds >= 100:
+                return "Major Hurricane" if basin in ['L', 'E', 'C'] else "Major Typhoon"
+            elif winds >= 65:
+                return "Hurricane" if basin in ['L', 'E', 'C'] else "Typhoon"
+            elif winds >= 50 and basin in ['W', 'S']:
+                return "Severe Tropical Storm"
+            elif winds >= 35:
+                return "Tropical Storm"
+            elif winds >= 25:
+                return "Tropical Depression (Autoflagged)"
+            else:
+                return "Tropical Low"
+
+        result = ""
+        
+        result = "\nDecoded storm information from the ATCF API:\n"
+        flag = 0
+        for storm in storm_data:
+            if len(info) > 0:
+                basin_code = storm['atcf_id'][-1]
+                storm_status = designation(basin_code, storm['winds'])
+                result += (f"\n```Storm ID: {storm['atcf_id']}\n"
+                        f"Name: {storm_status} {storm['storm_name']}\n"
+                        f"Date of Reading: {storm['analysis_time'][:10]}\n"
+                        f"Time of Reading: {storm['analysis_time'][11:16]} UTC\n"
+                        f"Coordinates: {storm['latitude']}N, {storm['longitude']}E\n"
+                        f"Basin: {basin_list.get(basin_code, 'Unknown Basin')}\n"
+                        f"Intensity: {storm['winds']} Kts / {storm['pressure']} hPa\n"
+                        f"Storm Nature: {storm['cyclone_nature']}```")
+            else:
+                flag = 1
+                result += f"{storm['atcf_sector_file']}\n"
+        if flag:
+            result = "```" + result + "```"
+        result += "Powered by Knack's ATCF v2 API"
+        return result
+
+    # Step 3: Fetch and handle API data
+    storm_data = fetch_atcf_data(atcf_api_url)
+    
+    if not storm_data or len(storm_data) == 0:
+        await ctx.send("```No storms are active.```")
+        return
+    
+    # Step 4: Display the storm information
+    storm_info = display_storm_info(storm_data)
+    await ctx.send(storm_info)
+
+
 @bot.command(name='btk', help='Get data on the most recent storms')
 async def btk(ctx, btkID:str, yr:str):
     import urllib3
@@ -187,7 +272,7 @@ async def btk(ctx, btkID:str, yr:str):
         for line in btkLines:
             if line.strip():
                 params = line.split(',')
-                if(params[11].strip() == '34'):
+                if(params[11].strip() == '34' and params[10].strip() not in ['DB', 'EX', 'LO', 'WV', 'MD', 'TD', 'SD']):
                     ace += (int(params[8]) ** 2) / 10000
         return "{:.4f}".format(ace)
 
@@ -701,7 +786,7 @@ async def tcpass(ctx, btkID: str):
     longitude = centerX
 
     # Define the bounding box around the point
-    box_size = 10  # Bounding box size in degrees
+    box_size = 14  # Bounding box size in degrees
     upper_right = f"{latitude + box_size},{longitude + box_size}"
     lower_left = f"{latitude - box_size},{longitude - box_size}"
 
@@ -794,7 +879,7 @@ async def tcpass(ctx, btkID: str):
                     lat, lon = float(point[2]), float(point[3])
                     if -90 <= lat <= 90 and -180 <= lon <= 180:
                         distance = haversine(latitude, longitude, lat, lon)
-                        if distance <= 400 and distance < min_distance:
+                        if distance <= 700 and distance < min_distance:
                             min_distance = distance
                             min_distance_point = (lat, lon)
                             min_distance_date = datetime.strptime(point[0], '%Y-%m-%dT%H:%M:%SZ').strftime('%d/%m\n%H:%M UTC')
@@ -826,12 +911,12 @@ async def tcpass(ctx, btkID: str):
     ax.plot(longitude, latitude, 'x', color='k', markersize=5)
 
     # Set map extent to show the area of interest
-    ax.set_extent([longitude - 5, longitude + 5, latitude - 5, latitude + 5])
+    ax.set_extent([longitude - 7, longitude + 7, latitude - 7, latitude + 7])
     gls = ax.gridlines(draw_labels=True, linewidth=0.5, linestyle='--', color='gray')
     gls.top_labels = False   # suppress top labels
     gls.right_labels = False  # suppress right labels
 
-    plt.title(f"Expected pass times for {btkID.upper()} {stormName} (< 500km from Center)")
+    plt.title(f"Expected pass times for {btkID.upper()} {stormName} (< 700km from Center)")
     plt.legend(
     loc='upper center',            # Place the legend at the top center of the bounding box
     bbox_to_anchor=(0.5, -0.15),   # Adjust the legend to be at the bottom of the box
@@ -922,6 +1007,7 @@ async def tcsst(ctx, btkID: str):
         # Add small contour lines for all SSTs
         contour = ax.contour(lon, lat, sst, levels=np.arange(vn, vm, 1), colors='black', linewidths=0.5, transform=ccrs.PlateCarree())
         # Add a contour line for 26 degrees Celsius
+
         contour_level = 26
         contour = ax.contour(lon, lat, sst, levels=[contour_level], colors='black', linewidths=2, transform=ccrs.PlateCarree())
 
@@ -1085,6 +1171,7 @@ async def tcsst_custom(ctx, centerY:float, centerX:float, offset=0):
         c = ax.contourf(lon, lat, sst, levels=np.arange(vn, vm, 1), transform=ccrs.PlateCarree(), cmap=col, extend='both')
         # Add small contour lines for all SSTs
         contour = ax.contour(lon, lat, sst, levels=np.arange(vn, vm, 1), colors='black', linewidths=0.5, transform=ccrs.PlateCarree())
+
         # Add a contour line for 26 degrees Celsius
         contour_level = 26
         contour = ax.contour(lon, lat, sst, levels=[contour_level], colors='black', linewidths=2, transform=ccrs.PlateCarree())
@@ -1535,6 +1622,9 @@ async def ibtracs(ctx, btkID:str, yr:str):
         await ctx.send(f"Error: {check} is the name of multiple storms in this database. Consider using their ATCF IDs instead.")
         return
     if(btkID == 'NOT_NAMED'):
+        await ctx.send("Due to the IBTRACS database being ambiguous with this name, it cannot be used.")
+        return
+    if(btkID == 'UNNAMED'):
         await ctx.send("Due to the IBTRACS database being ambiguous with this name, it cannot be used.")
         return
     #Load in the loops for finding the latitude and longitude...
@@ -3197,6 +3287,9 @@ async def oldibtracs(ctx, btkID:str, yr:str):
     if(btkID == 'NOT_NAMED'):
         await ctx.send("Due to the IBTRACS database being ambiguous with this name, it cannot be used.")
         return
+    if(btkID == 'UNNAMED'):
+        await ctx.send("Due to the IBTRACS database being ambiguous with this name, it cannot be used.")
+        return
     print(f"Command received from server: {ctx.guild.name}")
     #Load in the loops for finding the latitude and longitude...
     IBTRACS_ID = f"{btkID}{yr}"
@@ -4316,11 +4409,11 @@ async def mcfetch(ctx, satellite:str, band:str, latitude:float, longitude:float,
     await ctx.send("Please be patient as the image loads.")
 
     if mag1 == "" and mag2 == "" and zoom == "":
-        url = f"https://mcfetch.ssec.wisc.edu/cgi-bin/mcfetch?dkey=MCFETCH_API_KEY&satellite={satellite}&band={band}&output=JPG&date={year}-{month}-{day}&time={time[:2]}:{time[2:]}&eu={eu}&lat={latitude}+{longitude}&map=YES&size=600+600&mag=-1+-2"
+        url = f"https://mcfetch.ssec.wisc.edu/cgi-bin/mcfetch?dkey=MCFETCH_API&satellite={satellite}&band={band}&output=JPG&date={year}-{month}-{day}&time={time[:2]}:{time[2:]}&eu={eu}&lat={latitude}+{longitude}&map=YES&size=600+600&mag=-1+-2"
     elif zoom == "":
-        url = f"https://mcfetch.ssec.wisc.edu/cgi-bin/mcfetch?dkey=MCFETCH_API_KEY&satellite={satellite}&band={band}&output=JPG&date={year}-{month}-{day}&time={time[:2]}:{time[2:]}&eu={eu}&lat={latitude}+{longitude}&map=YES&size=600+600&mag={mag1}+{mag2}"
+        url = f"https://mcfetch.ssec.wisc.edu/cgi-bin/mcfetch?dkey=MCFETCH_API&satellite={satellite}&band={band}&output=JPG&date={year}-{month}-{day}&time={time[:2]}:{time[2:]}&eu={eu}&lat={latitude}+{longitude}&map=YES&size=600+600&mag={mag1}+{mag2}"
     else:
-        url = f"https://mcfetch.ssec.wisc.edu/cgi-bin/mcfetch?dkey=MCFETCH_API_KEY&satellite={satellite}&band={band}&output=JPG&date={year}-{month}-{day}&time={time[:2]}:{time[2:]}&eu={eu}&lat={latitude}+{longitude}&map=YES&size={zoom}+{zoom}&mag={mag1}+{mag2}"
+        url = f"https://mcfetch.ssec.wisc.edu/cgi-bin/mcfetch?dkey=MCFETCH_API&satellite={satellite}&band={band}&output=JPG&date={year}-{month}-{day}&time={time[:2]}:{time[2:]}&eu={eu}&lat={latitude}+{longitude}&map=YES&size={zoom}+{zoom}&mag={mag1}+{mag2}"
     
     if satellite in ['GOES16', 'GOES17', 'GOES18', 'GOES19', 'HIMAWARI8', 'HIMAWARI9']:
         coverage = coverage.upper()
@@ -4448,7 +4541,7 @@ async def weatherunion(ctx, stn_id:str):
     # Define the headers with the required content-type and your API key
     headers = {
         'content-type': 'application/json',
-        'x-zomato-api-key': 'WEATHERUNION_API_KEY'
+        'x-zomato-api-key': '0b96804b60bf26c471255275a86f4d6e'
     }
 
     # Define the parameters (locality_id)
@@ -5141,4 +5234,4 @@ async def commandHelp(ctx):
     await ctx.send("For the full command list, consult the google document here:\n")
     await ctx.send(url)
 
-bot.run(DISCORD_TOKEN)
+bot.run(BOT_TOKEN)
