@@ -1255,7 +1255,7 @@ async def ersst(ctx, month:int, year:int):
         return
     
     month_f = str(month).zfill(2)
-
+    '''
     opener = build_opener()
     filelist = [
         f'https://data.rda.ucar.edu/ds277.9/ersst.v5.nc/ersst.v5.{year}{month_f}.nc'
@@ -1270,7 +1270,7 @@ async def ersst(ctx, month:int, year:int):
         outfile.write(infile.read())
         outfile.close()
         sys.stdout.write("done\n")
-
+    '''
     def image_to_hex_array(image_path, x_range, y_coord, exclude_colors):
         # Open the image
         img = Image.open(image_path)
@@ -1316,13 +1316,13 @@ async def ersst(ctx, month:int, year:int):
     # Create the colormap
     crw = ListedColormap(extracted_colors, name='crw')
     
-    #url = f"https://www.ncei.noaa.gov/pub/data/cmb/ersst/v5/netcdf/ersst.v5.{year}{month_f}.nc"
+    url = f"https://www.ncei.noaa.gov/pub/data/cmb/ersst/v5/netcdf/ersst.v5.{year}{month_f}.nc"
     destination = f'ersst.v5.{year}{month_f}.nc'
-    '''
-        response = requests.get(url)
+
+    response = requests.get(url)
     with open(destination, 'wb') as file:
         file.write(response.content)
-    '''
+
     #offset_value =  -0.009103 * year + 18.19 old algorithm if the new one goes wrong
     
     if year < 1901:
@@ -4592,26 +4592,21 @@ async def windplot(ctx, pres:str, hour:str, day:str, month:str, year:str, areaN=
     await ctx.send("Please be patient as the required data is plotted.")
 
     # Step 1: Download the data using the CDS API
-    c = cdsapi.Client()
-    c.retrieve(
-        'reanalysis-era5-pressure-levels',
-        {
-            'product_type': 'reanalysis',
-            'format': 'grib',
-            'variable': [
-                'u_component_of_wind', 'v_component_of_wind',
-            ],
-            'pressure_level': f'{pres}',
-            'year': f'{year}',
-            'month': f'{month.zfill(2)}',
-            'day': f'{day.zfill(2)}',
-            'time': f'{hour.zfill(2)}:00',
-            'area': [
-                areaN, areaW, areaS,
-                areaE,
-            ],
-        },
-        'download.grib')
+    dataset = "reanalysis-era5-pressure-levels"
+    request = {
+        'product_type': ['reanalysis'],
+        'variable': ['u_component_of_wind', 'v_component_of_wind'],
+        'year': [f'{year}'],
+        'month': [f'{month.zfill(2)}'],
+        'day': [f'{day.zfill(2)}'],
+        'time': [f'{hour.zfill(2)}:00'],
+        'pressure_level': [f'{pres}'],
+        'format': 'grib',
+        'area': [areaN, areaW, areaS, areaE]  # North, West, South, East
+    }
+
+    client = cdsapi.Client()
+    client.retrieve(dataset, request).download('download.grib')
 
     # Step 2: Read and process the GRIB data
     ds = cfgrib.open_dataset('download.grib')
@@ -4637,7 +4632,6 @@ async def windplot(ctx, pres:str, hour:str, day:str, month:str, year:str, areaN=
     ax.add_feature(cfeature.COASTLINE)
     ax.add_feature(cfeature.BORDERS)
     ax.add_feature(cfeature.LAND, edgecolor='black')
-    ax.add_feature(cfeature.OCEAN, edgecolor='black', facecolor='#add8e6')
     
     # Add grid lines
     ax.gridlines(draw_labels=True, linewidth=0.5, color='gray', alpha=0.5, linestyle='--')
@@ -5234,4 +5228,4 @@ async def commandHelp(ctx):
     await ctx.send("For the full command list, consult the google document here:\n")
     await ctx.send(url)
 
-bot.run(BOT_TOKEN)
+bot.run('DISCORD_AUTH_TOKEN')
