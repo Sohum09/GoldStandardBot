@@ -1825,6 +1825,10 @@ async def mjoplot(ctx, day:int, month:int, year:int):
     import math
     import os
 
+    if (day <2 and month < 1 and year <= 1940) or (month > 8 and year >= 2023):
+        await ctx.send("Data is not available for this timeframe yet on ECMWF ERAv5.")
+        return
+    
     await ctx.send("Please be patient as the data is retrieved.")
 
     urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
