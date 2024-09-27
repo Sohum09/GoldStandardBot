@@ -4821,26 +4821,27 @@ async def reconplot(ctx, basin:str, aircraftType:str):
 
     lines = parsed_data.split('\n')
 
-    isValidData = 0
-    validData = []
-
     def is_three_digit_number(s):
         pattern = r'^(?!.*\|)\d{3}$'
         return bool(re.match(pattern, s))
 
+    validData = []
+    isValidData = 0
+
     for line in lines:
-        if line.strip():
-            if line == "$$" or line.split()[0]=="Standard":
+        line = line.strip()  # This removes any extra spaces from the line
+        if line:
+            if line == "$$" or line.split()[0] == "Standard":
                 isValidData = 0
                 break
-            if is_three_digit_number(line) or line=='000 ':
+            if is_three_digit_number(line) or line == '000':
                 isValidData = 1
-            if isValidData != 1:
-                validData.append(line)
-            
-    reconHDOB = []
-    for i in range(12, len(validData)):  
-        reconHDOB.append(validData[i])
+            if isValidData == 1:
+                validData.append(line)  # Only add valid data lines to the list
+                
+        reconHDOB = []
+        for i in range(12, len(validData)):  
+            reconHDOB.append(validData[i])
 
     for i in range(len(reconHDOB)):
         print(reconHDOB[i])
