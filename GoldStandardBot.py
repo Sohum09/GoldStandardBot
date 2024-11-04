@@ -1255,7 +1255,7 @@ async def ersst(ctx, month:int, year:int):
         return
     
     month_f = str(month).zfill(2)
-    '''
+    
     opener = build_opener()
     filelist = [
         f'https://data.rda.ucar.edu/ds277.9/ersst.v5.nc/ersst.v5.{year}{month_f}.nc'
@@ -1270,7 +1270,7 @@ async def ersst(ctx, month:int, year:int):
         outfile.write(infile.read())
         outfile.close()
         sys.stdout.write("done\n")
-    '''
+    
     def image_to_hex_array(image_path, x_range, y_coord, exclude_colors):
         # Open the image
         img = Image.open(image_path)
@@ -1318,11 +1318,11 @@ async def ersst(ctx, month:int, year:int):
     
     url = f"https://www.ncei.noaa.gov/pub/data/cmb/ersst/v5/netcdf/ersst.v5.{year}{month_f}.nc"
     destination = f'ersst.v5.{year}{month_f}.nc'
-
+    '''
     response = requests.get(url)
     with open(destination, 'wb') as file:
         file.write(response.content)
-
+    '''
     #offset_value =  -0.009103 * year + 18.19 old algorithm if the new one goes wrong
     
     if year < 1901:
@@ -1824,11 +1824,11 @@ async def mjoplot(ctx, day:int, month:int, year:int):
     import numpy as np
     import math
     import os
-
+    
     if (day <2 and month < 1 and year <= 1940) or (month > 8 and year >= 2023):
         await ctx.send("Data is not available for this timeframe yet on ECMWF ERAv5.")
         return
-    
+
     await ctx.send("Please be patient as the data is retrieved.")
 
     urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -1972,6 +1972,103 @@ async def otd(ctx, day:int, month:int):
 
     # Delete the temporary text file
     os.remove(output_file_path)
+
+@bot.command(name='findobs')
+async def findobs(ctx, lat: float, long: float):
+    import pandas as pd
+    import os
+    from datetime import datetime, timedelta
+    await ctx.send("Due to the large database being accessed, this command will take a little while (ETA: 30 seconds) to load.")
+    
+    # Define the URL to load the CSV data
+    url = f"https://data.pmel.noaa.gov/pmel/erddap/tabledap/osmc_rt_60.csv?platform_code,platform_type,latitude,longitude,time&latitude>={lat-1}&latitude<={lat+1}&longitude>={long-1}&longitude<={long+1}"
+
+    # Read the CSV content from the URL
+    data = pd.read_csv(url)
+
+    # Drop the first row (index 0) which contains header information
+    data = data.drop(index=0)
+
+    # Reset the index after dropping the row
+    data.reset_index(drop=True, inplace=True)
+
+    # Convert 'time' column to datetime, ensuring proper parsing
+    data['time'] = pd.to_datetime(data['time'], utc=True, errors='coerce')
+
+    # Get the current date and the previous day as pandas datetime64 objects
+    now = pd.Timestamp.utcnow()
+    yesterday = now - timedelta(days=1)
+
+    # Filter observations to keep only those from the previous and current day
+    filtered_data = data[(data['time'] >= yesterday) & (data['time'] <= now)]
+
+    # Drop duplicates based on 'platform_code' to keep only unique station IDs
+    distinct_stations = filtered_data[['platform_code', 'platform_type', 'latitude', 'longitude']].drop_duplicates(subset='platform_code')
+    await ctx.send("Data request successful.")
+
+    # Save the filtered data to a CSV file
+    output_file = "platform_data_find.csv"
+    distinct_stations.to_csv(output_file, index=False)
+
+    # Send the CSV file as an attachment in Discord
+    with open(output_file, "rb") as output_file:
+        await ctx.send(file=discord.File(output_file))
+
+    # Delete the temporary CSV file
+    os.remove("platform_data_find.csv")
+
+
+@bot.command(name='obsplot')
+async def obsplot(ctx, stationID:str):
+    import pandas as pd
+    import matplotlib.pyplot as plt
+    import os 
+
+    await ctx.send("Due to the large database this is looking at, it may take time to search for the obs. Please be patient.")
+
+    # Define the URL from which to load the CSV data
+    url = f"https://data.pmel.noaa.gov/pmel/erddap/tabledap/osmc_rt_60.csv?platform_code,platform_type,latitude,longitude,time,slp&orderBy(%22time%22)&platform_code=%22{str(stationID)}%22"
+
+    
+    # Read the CSV content from the URL, keeping all rows
+    data = pd.read_csv(url)
+
+    # Drop the first row (index 0)
+    data = data.drop(index=0)
+
+    # Reset the index after dropping the row
+    data.reset_index(drop=True, inplace=True)
+
+    # Display the first few rows and the columns of the DataFrame
+    print(data.head())
+    print("Columns after reading CSV:", data.columns.tolist())
+
+    # Convert 'time' to datetime, handling UTC
+    data['time'] = pd.to_datetime(data['time'], utc=True)
+
+    # Convert 'slp' to numeric, forcing errors to NaN
+    data['slp'] = pd.to_numeric(data['slp'], errors='coerce')
+
+    # Drop rows where 'slp' is NaN
+    data_clean = data.dropna(subset=['slp'])
+    await ctx.send("Data request successful, plotting data...")
+    # Plotting the SLP vs Time
+    plt.figure(figsize=(12, 6))
+    plt.plot(data_clean['time'], data_clean['slp'], marker='o', linestyle='-', color='b')
+    plt.title(f'Time vs Sea Level Pressure (SLP) series of Station {stationID}')
+    plt.xlabel('Time (Date)')
+    plt.ylabel('Sea Level Pressure (hPa)')
+    plt.xticks(rotation=45)
+    plt.grid()
+    image_path = f'obsplot_{stationID}.png'
+    plt.savefig(image_path, format='png', bbox_inches='tight')
+    plt.close()
+
+    with open(image_path, 'rb') as image_file:
+        image = discord.File(image_file)
+        await ctx.send(file=image)
+
+    os.remove(image_path)
 
 @bot.command(name='storm_name')
 async def storm_name(ctx, name:str):
@@ -4531,11 +4628,11 @@ async def mcfetch(ctx, satellite:str, band:str, latitude:float, longitude:float,
     await ctx.send("Please be patient as the image loads.")
 
     if mag1 == "" and mag2 == "" and zoom == "":
-        url = f"https://mcfetch.ssec.wisc.edu/cgi-bin/mcfetch?dkey=MCFETCH_API&satellite={satellite}&band={band}&output=JPG&date={year}-{month}-{day}&time={time[:2]}:{time[2:]}&eu={eu}&lat={latitude}+{longitude}&map=YES&size=600+600&mag=-1+-2"
+        url = f"https://mcfetch.ssec.wisc.edu/cgi-bin/mcfetch?dkey=API_KEY&satellite={satellite}&band={band}&output=JPG&date={year}-{month}-{day}&time={time[:2]}:{time[2:]}&eu={eu}&lat={latitude}+{longitude}&map=YES&size=600+600&mag=-1+-2"
     elif zoom == "":
-        url = f"https://mcfetch.ssec.wisc.edu/cgi-bin/mcfetch?dkey=MCFETCH_API&satellite={satellite}&band={band}&output=JPG&date={year}-{month}-{day}&time={time[:2]}:{time[2:]}&eu={eu}&lat={latitude}+{longitude}&map=YES&size=600+600&mag={mag1}+{mag2}"
+        url = f"https://mcfetch.ssec.wisc.edu/cgi-bin/mcfetch?dkey=API_KEY&satellite={satellite}&band={band}&output=JPG&date={year}-{month}-{day}&time={time[:2]}:{time[2:]}&eu={eu}&lat={latitude}+{longitude}&map=YES&size=600+600&mag={mag1}+{mag2}"
     else:
-        url = f"https://mcfetch.ssec.wisc.edu/cgi-bin/mcfetch?dkey=MCFETCH_API&satellite={satellite}&band={band}&output=JPG&date={year}-{month}-{day}&time={time[:2]}:{time[2:]}&eu={eu}&lat={latitude}+{longitude}&map=YES&size={zoom}+{zoom}&mag={mag1}+{mag2}"
+        url = f"https://mcfetch.ssec.wisc.edu/cgi-bin/mcfetch?dkey=API_KEY&satellite={satellite}&band={band}&output=JPG&date={year}-{month}-{day}&time={time[:2]}:{time[2:]}&eu={eu}&lat={latitude}+{longitude}&map=YES&size={zoom}+{zoom}&mag={mag1}+{mag2}"
     
     if satellite in ['GOES16', 'GOES17', 'GOES18', 'GOES19', 'HIMAWARI8', 'HIMAWARI9']:
         coverage = coverage.upper()
@@ -5021,10 +5118,18 @@ async def reconplot(ctx, basin:str, aircraftType:str):
 async def tcprimed(ctx):
     await ctx.send("https://colab.research.google.com/drive/18jAoFVesVHu6cYzfL7Jk7mY0GEHnzqyY?usp=sharing")
 
+@bot.command(name='hursat_avhrr')
+async def hursat_avhrr(ctx):
+    await ctx.send("https://colab.research.google.com/drive/1m27IzsuwQyyLmNSkkI9VtDIkBAePkBiZ?usp=sharing")
+
+@bot.command(name='hursat_b1')
+async def hursat_b1(ctx):
+    await ctx.send("https://colab.research.google.com/drive/1Rgjwg3-Fd_ce17BZnyBp8gCRe5DGrkOx?usp=sharing")
+
 @bot.command(name='land_degrade')
-async def land_degrade(ctx, v0:float, hour:float):
+async def land_degrade(ctx, v0:float, hour:float, us=0):
     import math
-    v_t = v0 * math.exp(-0.044 * hour)
+    v_t = v0 * math.exp(-0.044 * hour) if us == 0 else v0 * math.exp(-0.08 * hour)
     v_t = "{:.2f}".format(v_t)
     await ctx.send(f"The extrapolated intensity {hour} hour(s) post landfall: {v_t} Kt")
 
@@ -5047,6 +5152,15 @@ async def chappal(ctx):
     with open(image_path1, 'rb') as image_file:
         image = discord.File(image_file)
         await ctx.send(file=image)
+
+@bot.command(name='batsirai')
+async def batsirai(ctx):
+    image_path1 = 'batsirai.webp'
+
+    with open(image_path1, 'rb') as image_file:
+        image = discord.File(image_file)
+        await ctx.send(file=image)
+
 
 @bot.command(name='megaslop')
 async def megaslop(ctx):
@@ -5193,6 +5307,13 @@ async def death(ctx):
         image = discord.File(image_file)
         await ctx.send(file=image)
 
+@bot.command(name='rulef')
+async def rulef(ctx):
+    image_path = 'rulef.webp'
+
+    with open(image_path, 'rb') as image_file:
+        image = discord.File(image_file)
+        await ctx.send(file=image)
 
 @bot.command(name='roastepac')
 async def roastepac(ctx):
@@ -5263,6 +5384,14 @@ async def kohli(ctx):
         image = discord.File(image_file)
         await ctx.send(file=image)
 
+@bot.command(name='bumrah')
+async def bumrah(ctx):
+    image_path = 'bumrahxpope-bumrah.mp4'
+
+    with open(image_path, 'rb') as image_file:
+        image = discord.File(image_file)
+        await ctx.send(file=image)
+
 @bot.command(name='erick')
 async def erick(ctx):
     image_path = 'Erick.PNG'
@@ -5311,6 +5440,13 @@ async def obama(ctx):
         image = discord.File(image_file)
         await ctx.send(file=image)
 
+@bot.command(name='front')
+async def front(ctx):
+    image_path = 'front.webp'
+
+    with open(image_path, 'rb') as image_file:
+        image = discord.File(image_file)
+        await ctx.send(file=image)
 
 @bot.command(name='mjv')
 async def obama(ctx):
@@ -5351,4 +5487,4 @@ async def commandHelp(ctx):
     await ctx.send("For the full command list, consult the google document here:\n")
     await ctx.send(url)
 
-bot.run('DISCORD_AUTH_TOKEN')
+bot.run('BOT_TOKEN')
