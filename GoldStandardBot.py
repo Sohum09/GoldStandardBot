@@ -49,7 +49,7 @@ async def atcf(ctx, info=""):
     http = urllib3.PoolManager(cert_reqs='CERT_NONE', assert_hostname=False)
     
     # URL of the ATCF data
-    atcf_url = 'https://www.nrlmry.navy.mil/tcdat/sectors/atcf_sector_file'
+    atcf_url = 'https://science.nrlmry.navy.mil/geoips/tcdat/sectors/atcf_sector_file'
 
     # Step 2: Fetch ATCF data:
     def fetch_atcf_data(url):
@@ -235,9 +235,16 @@ async def atcfv2(ctx, info=""):
 
 
 @bot.command(name='btk', help='Get data on the most recent storms')
-async def btk(ctx, btkID:str, yr:str):
+async def btk(ctx, btkID:str, yr:str, plotter=''):
     import urllib3
     from bs4 import BeautifulSoup
+    import matplotlib.pyplot as plt
+    import cartopy.crs as ccrs
+    import cartopy.feature as cfeature
+    from matplotlib.lines import Line2D
+    import os
+    import numpy as np
+    import matplotlib.colors as mcolors
 
     urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
     http = urllib3.PoolManager(cert_reqs='CERT_NONE', assert_hostname=False)
@@ -295,6 +302,218 @@ async def btk(ctx, btkID:str, yr:str):
 
     res = decode_JTWC_btk(bt_list)
     await ctx.send(res)
+
+    if len(plotter) > 0:
+        await ctx.send("Plotting BT data:")
+        idl = False
+
+        lines = parsed_data.split('\n')
+
+        cdx, cdy, winds, status, timeCheck, pres, DateTime, r34 = [], [], [], [], [], [], [], []
+        stormName = ""
+
+        for line in lines:
+            if line.strip():
+                parameters = line.split(',')
+                if parameters[6][-1] == 'S':
+                    cdy.append((float(parameters[6][:-1].strip()) / 10)*-1)
+                else:
+                    cdy.append(float(parameters[6][:-1].strip()) / 10)
+
+                if parameters[7][-1] == 'W':
+                    cdx.append((float(parameters[7][:-1].strip()) / 10)*-1)
+                else:
+                    cdx.append(float(parameters[7][:-1].strip()) / 10)
+
+                if(float(cdx[-1]) < -178 or float(cdx[-1]) > 178):
+                    idl = True
+
+                winds.append(int(parameters[8].strip()))
+                status.append(parameters[10].strip())
+                timeCheck.append((parameters[2][-2:].strip()))
+                date = parameters[2].strip()
+                date = f'{date[:4]}-{date[4:6]}-{date[6:8]} {timeCheck[-1]}:00:00'
+                DateTime.append(date)
+                pres.append(int(parameters[9].strip()))
+                r34.append(int(parameters[11].strip()))
+                stormName = parameters[27].strip()
+
+        #Beginning work on the actual plotting of the data:
+        if idl == True:
+            fig, ax = plt.subplots(subplot_kw={'projection': ccrs.PlateCarree(central_longitude=180)}, figsize=(12, 10))
+        else:
+            fig, ax = plt.subplots(subplot_kw={'projection': ccrs.PlateCarree()}, figsize=(12, 10))
+
+        ax.add_feature(cfeature.COASTLINE, linewidth=0.5)
+        ax.add_feature(cfeature.BORDERS, linewidth=0.5)
+        ax.add_feature(cfeature.LAND, facecolor='lightgray')
+        ax.add_feature(cfeature.OCEAN, facecolor='lightblue')
+
+        ax.gridlines(draw_labels=True, linewidth=0.5, linestyle='--', color='gray')
+        maxLat, minLat, maxLong, minLong = -999, 999, -999, 999
+        vmax, statMaxIndx = 0, 0
+
+        #Plotting the markers...
+        for i in range(0, len(cdx)):
+            if cdx[i] == ' ' or cdy[i] == ' ' or winds[i] == ' ':
+                continue
+            
+            if idl == True:
+                coord_x, coord_y = float(cdx[i])+180 if float(cdx[i])<0 else float(cdx[i])-180, float(cdy[i])
+            else:
+                coord_x, coord_y = float(cdx[i]), float(cdy[i])
+            wind = int(winds[i])
+
+            #Setup for finding bounding box...
+            if(maxLat < coord_y):
+                maxLat = coord_y
+            if(minLat > coord_y):
+                minLat = coord_y
+            if(maxLong < coord_x):
+                maxLong = coord_x
+            if(minLong > coord_x):
+                minLong = coord_x 
+            
+            #Setup for displaying VMAX as well as peak Status...
+            if vmax < wind:
+                vmax = wind
+                statMaxIndx = i
+
+            if(int(timeCheck[i]) % 6  == 0):
+                #Mark scatter plots...
+                if status[i] in ['DB', 'WV', 'LO', 'MD']:
+                    plt.scatter(coord_x, coord_y, color='#444764', marker='^', zorder=3)
+                elif status[i] == 'EX':
+                    if int(wind) >= 64:
+                        plt.scatter(coord_x, coord_y, color='#ffff00', marker='^', zorder=3)
+                    elif int(wind) >= 34:
+                        plt.scatter(coord_x, coord_y, color='g', marker='^', zorder=3)
+                    else:
+                        plt.scatter(coord_x, coord_y, color='b', marker='^', zorder=3)
+                elif status[i] == 'SS':
+                    plt.scatter(coord_x, coord_y, color='g', marker='s', zorder=3)
+                elif status[i] == 'SD':
+                    plt.scatter(coord_x, coord_y, color='b', marker='s', zorder=3)
+                else:
+                    if int(wind) >= 137:
+                        plt.scatter(coord_x, coord_y, color='m', marker='o', zorder=3)
+                    elif int(wind) >= 112:
+                        plt.scatter(coord_x, coord_y, color='r', marker='o', zorder=3)
+                    elif int(wind) >= 96:
+                        plt.scatter(coord_x, coord_y, color='#ff5908', marker='o', zorder=3)
+                    elif int(wind) >= 81:
+                        plt.scatter(coord_x, coord_y, color='#ffa001', marker='o', zorder=3)
+                    elif int(wind) >= 64:
+                        plt.scatter(coord_x, coord_y, color='#ffff00', marker='o', zorder=3)
+                    elif int(wind) >= 34:
+                        plt.scatter(coord_x, coord_y, color='g', marker='o', zorder=3)
+                    else:
+                        plt.scatter(coord_x, coord_y, color='b', marker='o', zorder=3)
+
+        #Setting the coordinates for the bounding box...
+        center_x = (minLong + maxLong)/2
+        center_y = (minLat + maxLat)/2
+
+        center_width = abs(maxLong - minLong)
+        center_height = abs(maxLat - minLat)
+        ratio = (center_height/center_width)
+        print(ratio)
+        '''
+        if ratio < 0.3: 
+            ax.set_xlim(center_x-center_width, center_x+center_width)
+            ax.set_ylim(center_y-(center_width/2), center_y+(center_width/2))
+        elif ratio > 0.7:
+            ax.set_xlim(center_x-(center_height), center_x+(center_height))
+            ax.set_ylim(center_y-center_height, center_y+center_height)
+        else:
+            ax.set_xlim(center_x-center_width, center_x+center_width)
+            ax.set_ylim(center_y-center_height, center_y+center_height)
+        '''
+        #----NEW-----
+        ax.set_xlim(minLong-2, maxLong+2)
+        ax.set_ylim(minLat-2, maxLat+2)
+        #------------
+
+        #Defining the legend box for the plot...
+        legend_elements = [
+                        Line2D([0], [0], marker='^', color='w', label='Non-Tropical',markerfacecolor='#444764', markersize=10),
+                        Line2D([0], [0], marker='s', color='w', label='Sub-Tropical',markerfacecolor='#444764', markersize=10),
+                        #Line2D([0], [0], marker='o', color='w', label='Tropical Depression',markerfacecolor='b', markersize=10),
+                        #Line2D([0], [0], marker='o', color='w', label='Tropical Storm',markerfacecolor='g', markersize=10),
+                        #Line2D([0], [0], marker='o', color='w', label='Category 1',markerfacecolor='#ffff00', markersize=10),
+                        #Line2D([0], [0], marker='o', color='w', label='Category 2',markerfacecolor='#ffa001', markersize=10),
+                        #Line2D([0], [0], marker='o', color='w', label='Category 3',markerfacecolor='#ff5908', markersize=10),
+                        #Line2D([0], [0], marker='o', color='w', label='Category 4',markerfacecolor='r', markersize=10),
+                        #Line2D([0], [0], marker='o', color='w', label='Category 5',markerfacecolor='m', markersize=10),
+        ]
+
+        # Define the color mapping for wind speeds
+        colors = ['b', 'g', '#ffff00', '#ffa001', '#ff5908', 'r', 'm']
+        bounds = [0, 34, 64, 81, 96, 112, 137, 200]
+        norm = mcolors.BoundaryNorm(bounds, len(colors))
+        labels = ['TD', 'TS', 'C1', 'C2', 'C3', 'C4', 'C5']
+
+        #Building the function that calculates ACE...
+        def calc_ACE(winds, timeCheck):
+            ace = 0
+            aceList = []
+            for i in range(len(winds)):
+                if(winds[i] == ' '):
+                    continue
+                time = int(timeCheck[i]) % 6 #If it is synoptic time and meets...
+                if(time==0 and r34[i] == 34 and int(winds[i]) >= 34 and status[i] not in ['DB', 'LO', 'WV', 'EX']): 
+                    ace += (int(winds[i]) ** 2) / 10000
+                aceList.append(ace)
+            return "{:.4f}".format(ace)
+
+
+        #Plotting the TC Path...
+        LineX = []
+        LineY = []
+        for i in range(len(cdx)):
+            if cdx[i] == ' ' or cdy[i] == ' ':
+                continue
+            if idl == True:
+                LineX.append(float(cdx[i])+180 if float(cdx[i])<0 else float(cdx[i])-180)
+            else:
+                LineX.append(float(cdx[i]))
+            LineY.append(float(cdy[i]))
+        plt.plot(LineX, LineY, color="k", linestyle="-")
+
+        #Applying final touches...
+        plt.xlabel('Longitude')
+        plt.ylabel('Latitude')
+        plt.title(f'{btkID.upper()}{yr} {stormName}')
+        plt.title(f'VMAX: {vmax} Kts', loc='left', fontsize=9)
+        plt.title(f'ACE: {calc_ACE(winds, timeCheck)}', loc='right', fontsize=9)
+        ax.legend(handles=legend_elements, loc='upper right')
+        plt.grid(True)
+
+        #-----NEW-----------
+        # Create the colorbar
+        cmap = mcolors.ListedColormap(colors)
+        norm = mcolors.BoundaryNorm(bounds, cmap.N)
+        sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
+        sm.set_array([])
+        ax.legend(handles=legend_elements, loc='best')
+
+        # Add colorbar to the plot
+        cbar = plt.colorbar(sm, ticks=bounds, orientation='horizontal', pad=0.05, aspect=50, ax=ax, shrink=0.5)
+        cbar.set_label('SSHWS Windspeeds (Kts)')
+        cbar.ax.set_xticklabels(['0', '34', '64', '81', '96', '112', '137', '200'])
+        #---------------------
+        plt.tight_layout()
+        
+        r = np.random.randint(1, 10)
+        image_path = f'Track_Map{r}.png'
+        plt.savefig(image_path, format='png', bbox_inches='tight')
+        plt.close()
+
+        with open(image_path, 'rb') as image_file:
+            image = discord.File(image_file)
+            await ctx.send(file=image)
+
+        os.remove(image_path)  
 
 @bot.command(name='ripa')
 async def ripa(ctx, btkID:str):
@@ -1606,6 +1825,7 @@ async def ibtracs(ctx, btkID:str, yr:str):
     from matplotlib.lines import Line2D
     import os
     import numpy as np
+    import matplotlib.colors as mcolors
 
     print(f"Command received from server: {ctx.guild.name}")
     btkID = btkID.upper()
@@ -1655,9 +1875,7 @@ async def ibtracs(ctx, btkID:str, yr:str):
                     timeCheck.append(lines[6][-8:-6])
                     storm_name = lines[5]
     await ctx.send("System located in database, generating track...")
-    #-------------------------------DEBUG INFORMATION-----------------------------------
-    print(cdx, "\n", cdy, "\n", winds, "\n", status, "\n", timeCheck, "\n", storm_name)
-    #-----------------------------------------------------------------------------------
+    print("System located in database, generating track...")
     
     #Beginning work on the actual plotting of the data:
     if idl == True:
@@ -1740,28 +1958,33 @@ async def ibtracs(ctx, btkID:str, yr:str):
 
     ratio = (center_height/center_width)
     print(ratio)
-    if ratio < 0.3:
-        ax.set_xlim(center_x-center_width, center_x+center_width)
-        ax.set_ylim(center_y-(center_width/2), center_y+(center_width/2))
-    elif ratio > 0.7:
-        ax.set_xlim(center_x-(center_height), center_x+(center_height))
-        ax.set_ylim(center_y-center_height, center_y+center_height)
-    else:
-        ax.set_xlim(center_x-center_width, center_x+center_width)
-        ax.set_ylim(center_y-center_height, center_y+center_height)
+    '''
+        if ratio < 0.3: 
+            ax.set_xlim(center_x-center_width, center_x+center_width)
+            ax.set_ylim(center_y-(center_width/2), center_y+(center_width/2))
+        elif ratio > 0.7:
+            ax.set_xlim(center_x-(center_height), center_x+(center_height))
+            ax.set_ylim(center_y-center_height, center_y+center_height)
+        else:
+            ax.set_xlim(center_x-center_width, center_x+center_width)
+            ax.set_ylim(center_y-center_height, center_y+center_height)
+        '''
+    #----NEW-----
+    ax.set_xlim(minLong-8, maxLong+8)
+    ax.set_ylim(minLat-2, maxLat+2)
+    #------------
 
     #Defining the legend box for the plot...
     legend_elements = [
                     Line2D([0], [0], marker='^', color='w', label='Non-Tropical',markerfacecolor='#444764', markersize=10),
                     Line2D([0], [0], marker='s', color='w', label='Sub-Tropical',markerfacecolor='#444764', markersize=10),
-                    Line2D([0], [0], marker='o', color='w', label='Tropical Depression',markerfacecolor='b', markersize=10),
-                    Line2D([0], [0], marker='o', color='w', label='Tropical Storm',markerfacecolor='g', markersize=10),
-                    Line2D([0], [0], marker='o', color='w', label='Category 1',markerfacecolor='#ffff00', markersize=10),
-                    Line2D([0], [0], marker='o', color='w', label='Category 2',markerfacecolor='#ffa001', markersize=10),
-                    Line2D([0], [0], marker='o', color='w', label='Category 3',markerfacecolor='#ff5908', markersize=10),
-                    Line2D([0], [0], marker='o', color='w', label='Category 4',markerfacecolor='r', markersize=10),
-                    Line2D([0], [0], marker='o', color='w', label='Category 5',markerfacecolor='m', markersize=10),
     ]
+
+    # Define the color mapping for wind speeds
+    colors = ['b', 'g', '#ffff00', '#ffa001', '#ff5908', 'r', 'm']
+    bounds = [0, 34, 64, 81, 96, 112, 137, 200]
+    norm = mcolors.BoundaryNorm(bounds, len(colors))
+    labels = ['TD', 'TS', 'C1', 'C2', 'C3', 'C4', 'C5']
 
     #Building the function that calculates ACE...
     def calc_ACE(winds, timeCheck):
@@ -1801,8 +2024,21 @@ async def ibtracs(ctx, btkID:str, yr:str):
         plt.title(f'{s_ID} {storm_name}')
     plt.title(f'VMAX: {vmax} Kts', loc='left', fontsize=9)
     plt.title(f'ACE: {calc_ACE(winds, timeCheck)}', loc='right', fontsize=9)
-    ax.legend(handles=legend_elements, loc='upper right' if btkID[:2]=="SH" or btkID[:2]=="EP" else "upper left")
+    ax.legend(handles=legend_elements, loc="best")
     plt.grid(True)
+
+    #-----NEW-----------
+    # Create the colorbar
+    cmap = mcolors.ListedColormap(colors)
+    norm = mcolors.BoundaryNorm(bounds, cmap.N)
+    sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
+    sm.set_array([])
+
+    # Add colorbar to the plot
+    cbar = plt.colorbar(sm, ticks=bounds, orientation='horizontal', pad=0.05, aspect=50, ax=ax, shrink=0.5)
+    cbar.set_label('SSHWS Windspeeds (Kts)')
+    cbar.ax.set_xticklabels(['0', '34', '64', '81', '96', '112', '137', '200'])
+    #---------------------
     plt.tight_layout()
     
     r = np.random.randint(1, 10)
@@ -2246,15 +2482,8 @@ async def season(ctx, basin:str, yr:str):
 
         ratio = (center_height/center_width)
         print(ratio)
-        if ratio < 0.3:
-            ax.set_xlim(center_x-center_width, center_x+center_width)
-            ax.set_ylim(center_y-(center_width/2), center_y+(center_width/2))
-        elif ratio > 0.7:
-            ax.set_xlim(center_x-(center_height), center_x+(center_height))
-            ax.set_ylim(center_y-center_height, center_y+center_height)
-        else:
-            ax.set_xlim(center_x-center_width, center_x+center_width)
-            ax.set_ylim(center_y-center_height, center_y+center_height)
+        ax.set_xlim(minLong-8, maxLong+8)
+        ax.set_ylim(minLat-2, maxLat+2)
        
 
     legend_elements = [
@@ -2287,14 +2516,8 @@ async def season(ctx, basin:str, yr:str):
     plt.ylabel('Latitude')
     plt.title(f'Season Summary: {yr} {basin}', loc='left')
     plt.title(f'ACE: {calc_ACE(winds, timeCheck)}', loc='right', fontsize=9)
-    location = ""
-    if(basin == 'EP'):
-        location = "upper right"
-    elif(basin == 'SP' or basin == 'SI'):
-        location = "upper left"
-    else:
-        location = "upper left"
-    ax.legend(handles=legend_elements, loc=location)
+    
+    ax.legend(handles=legend_elements, loc='best')
     plt.grid(True)
     plt.tight_layout()
     
@@ -4650,7 +4873,7 @@ async def mcfetch(ctx, satellite:str, band:str, latitude:float, longitude:float,
 
 @bot.command(name='mcfetch_help')
 async def mcfetch_help(ctx):
-    image2 = 'MCFETCH_Bands.webp'
+    image2 = 'MCFETCH_SATELLITESv2.webp'
     image1 = 'documentation.webp'
     with open(image1, 'rb') as image_file:
         image1 = discord.File(image_file)
@@ -5487,4 +5710,4 @@ async def commandHelp(ctx):
     await ctx.send("For the full command list, consult the google document here:\n")
     await ctx.send(url)
 
-bot.run('BOT_TOKEN')
+bot.run(AUTHENTICATION_KEY)
