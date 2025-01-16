@@ -259,6 +259,14 @@ async def btk(ctx, btkID:str, yr:str, plotter=''):
 
     btkID = btkID.lower()
 
+    def _00x_to_xx00(des):
+        convert_map = {"l": "al", "e": "ep", "c": "cp", "w":"wp", "a":"io", "b":"io", "s":"sh", "p":"sh"}
+        return convert_map[des[-1]] + des[:-1]
+
+    import re
+    if re.match(r"^\d{2}[a-z]$", btkID):    
+        btkID = _00x_to_xx00(btkID)
+
     if btkID[:2] in ['sh', 'wp', 'io']:
         btkUrl = f'https://www.ssd.noaa.gov/PS/TROP/DATA/ATCF/JTWC/b{btkID}{yr}.dat'
     else:
@@ -279,7 +287,7 @@ async def btk(ctx, btkID:str, yr:str, plotter=''):
         for line in btkLines:
             if line.strip():
                 params = line.split(',')
-                if(params[11].strip() == '34' and params[10].strip() not in ['DB', 'EX', 'LO', 'WV', 'MD', 'TD', 'SD']):
+                if(int(params[2][-2:]) % 6 == 0 and params[11].strip() == '34' and params[10].strip() not in ['DB', 'EX', 'LO', 'WV', 'MD', 'TD', 'SD']):
                     ace += (int(params[8]) ** 2) / 10000
         return "{:.4f}".format(ace)
 
@@ -590,7 +598,17 @@ async def amsu(ctx, header:str):
         return soup.get_text()
     
     header = header.upper()
-    btkUrl = f'https://tropic.ssec.wisc.edu/real-time/amsu/archive/2024/2024{header}/intensity.txt'
+    if header[-1] == 'S':
+        from datetime import datetime
+        basinDate = datetime.now()
+        basinmonth = basinDate.month
+        basinYear = basinDate.year
+        if basinmonth >= 7:
+            btkUrl = f'https://tropic.ssec.wisc.edu/real-time/amsu/archive/{basinYear+1}/{basinYear+1}{header}/intensity.txt'
+        else:
+            btkUrl = f'https://tropic.ssec.wisc.edu/real-time/amsu/archive/{basinYear}/{basinYear}{header}/intensity.txt'
+    else:
+        btkUrl = f'https://tropic.ssec.wisc.edu/real-time/amsu/archive/{basinYear}/{basinYear}{header}/intensity.txt'
 
     btk_data = fetch_url(btkUrl)
     parsed_data = parse_data(btk_data)
@@ -637,7 +655,7 @@ async def rev_ckz(ctx, pres:float, storm_movement:float, latitude:float, roci:fl
     import numpy as np
     import math
     latitude = abs(latitude)
-    poci = pres - 5
+    poci = pres - 6 #Approximation to reduce the error
 
     #S-ratio calculation...
     S = (roci/60)/8 + 0.1
@@ -949,6 +967,13 @@ async def tcpass(ctx, btkID: str):
     import numpy as np
     
     btkID = btkID.lower()
+    def _00x_to_xx00(des):
+        convert_map = {"l": "al", "e": "ep", "c": "cp", "w":"wp", "a":"io", "b":"io", "s":"sh", "p":"sh"}
+        return convert_map[des[-1]] + des[:-1]
+
+    import re
+    if re.match(r"^\d{2}[a-z]$", btkID):    
+        btkID = _00x_to_xx00(btkID)
     await ctx.send("Please wait. Due to API service times, the figure may take a few seconds to generate.")
     urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
     http = urllib3.PoolManager(cert_reqs='CERT_NONE', assert_hostname=False)
@@ -966,14 +991,15 @@ async def tcpass(ctx, btkID: str):
             from datetime import datetime
             basinDate = datetime.now()
             basinmonth = basinDate.month
+            basinYear = basinDate.year
             if basinmonth >= 7:
-                btkUrl = f'https://www.ssd.noaa.gov/PS/TROP/DATA/ATCF/JTWC/b{btkID}2025.dat'
+                btkUrl = f'https://www.ssd.noaa.gov/PS/TROP/DATA/ATCF/JTWC/b{btkID}{basinYear+1}.dat'
             else:
-                btkUrl = f'https://www.ssd.noaa.gov/PS/TROP/DATA/ATCF/JTWC/b{btkID}2024.dat'
+                btkUrl = f'https://www.ssd.noaa.gov/PS/TROP/DATA/ATCF/JTWC/b{btkID}{basinYear}.dat'
         else:
-            btkUrl = f'https://www.ssd.noaa.gov/PS/TROP/DATA/ATCF/JTWC/b{btkID}2024.dat'
+            btkUrl = f'https://www.ssd.noaa.gov/PS/TROP/DATA/ATCF/JTWC/b{btkID}{basinYear}.dat'
     else:
-        btkUrl = f'https://www.ssd.noaa.gov/PS/TROP/DATA/ATCF/NHC/b{btkID}2024.dat'
+        btkUrl = f'https://www.ssd.noaa.gov/PS/TROP/DATA/ATCF/NHC/b{btkID}{basinYear}.dat'
 
     btk_data = fetch_url(btkUrl)
     parsed_data = parse_data(btk_data)
@@ -1171,6 +1197,14 @@ async def tcsst(ctx, btkID: str):
     from matplotlib.colors import ListedColormap, LinearSegmentedColormap
 
     btkID = btkID.lower()
+    def _00x_to_xx00(des):
+        convert_map = {"l": "al", "e": "ep", "c": "cp", "w":"wp", "a":"io", "b":"io", "s":"sh", "p":"sh"}
+        return convert_map[des[-1]] + des[:-1]
+
+    import re
+    if re.match(r"^\d{2}[a-z]$", btkID):    
+        btkID = _00x_to_xx00(btkID)
+
     await ctx.send("Please wait. Due to my terrible potato laptop, the image may take a while to generate.")
     urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
     http = urllib3.PoolManager(cert_reqs='CERT_NONE', assert_hostname=False)
@@ -1257,14 +1291,15 @@ async def tcsst(ctx, btkID: str):
             from datetime import datetime
             basinDate = datetime.now()
             basinmonth = basinDate.month
+            basinYear = basinDate.year
             if basinmonth >= 7:
-                btkUrl = f'https://www.ssd.noaa.gov/PS/TROP/DATA/ATCF/JTWC/b{btkID}2025.dat'
+                btkUrl = f'https://www.ssd.noaa.gov/PS/TROP/DATA/ATCF/JTWC/b{btkID}{basinYear+1}.dat'
             else:
-                btkUrl = f'https://www.ssd.noaa.gov/PS/TROP/DATA/ATCF/JTWC/b{btkID}2024.dat'
+                btkUrl = f'https://www.ssd.noaa.gov/PS/TROP/DATA/ATCF/JTWC/b{btkID}{basinYear}.dat'
         else:
-            btkUrl = f'https://www.ssd.noaa.gov/PS/TROP/DATA/ATCF/JTWC/b{btkID}2024.dat'
+            btkUrl = f'https://www.ssd.noaa.gov/PS/TROP/DATA/ATCF/JTWC/b{btkID}{basinYear}.dat'
     else:
-        btkUrl = f'https://www.ssd.noaa.gov/PS/TROP/DATA/ATCF/NHC/b{btkID}2024.dat'
+        btkUrl = f'https://www.ssd.noaa.gov/PS/TROP/DATA/ATCF/NHC/b{btkID}{basinYear}.dat'
 
     btk_data = fetch_url(btkUrl)
     parsed_data = parse_data(btk_data)
@@ -1434,6 +1469,126 @@ async def tcsst_custom(ctx, centerY:float, centerX:float, offset=0):
 
     # Construct the modified URL using the extracted components
     url = f"https://www.ncei.noaa.gov/data/sea-surface-temperature-optimum-interpolation/v2.1/access/avhrr/{year}{month}/oisst-avhrr-v02r01.{year}{month}{day}_preliminary.nc"
+
+    # Download the netCDF file
+    response = http.request('GET', url)
+    with open('sst_data.nc', 'wb') as file:
+        file.write(response.data)
+
+    # Open the downloaded netCDF file
+    dataset = netCDF4.Dataset('sst_data.nc')
+
+    # Extract latitude, longitude, and SST data
+    lat = dataset.variables['lat'][:]
+    lon = dataset.variables['lon'][:]
+    sst = dataset.variables['sst'][0, 0, :, :]  # Assuming time and zlev dimensions are 1
+
+    # Generate and send the SST map image
+    await generate_and_send_image(centerX, centerY)
+    dataset.close()
+    # Clean up: remove the downloaded netCDF file
+    os.remove('sst_data.nc')
+
+@bot.command(name='tcsst_historical')
+async def tcsst_historical(ctx, centerY:float, centerX:float, date, offset=0):
+    import discord
+    import urllib3
+    from bs4 import BeautifulSoup
+    import matplotlib.pyplot as plt
+    import cartopy.crs as ccrs
+    from matplotlib.lines import Line2D
+    import numpy as np
+    import netCDF4
+    import io
+    import os
+    from datetime import datetime, timedelta
+    from matplotlib import cm
+    from matplotlib.colors import ListedColormap, LinearSegmentedColormap
+
+    if centerY < -90 or centerY > 90 or centerX > 179.99 or centerX < -179.99:
+        await ctx.send("Out of bounds!")
+        return
+
+    await ctx.send("Please wait. Due to my terrible potato laptop, the image may take a while to generate.")
+    urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+    http = urllib3.PoolManager(cert_reqs='CERT_NONE', assert_hostname=False)
+
+    def crw():
+        newcmp = LinearSegmentedColormap.from_list("", [
+        (0/40, '#48003f'),
+        (5/40, "#910087"),
+        (5/40, "#280096"),
+        (10/40, "#6a5bbf"),
+        (10/40, "#000082"),
+        (15/40, "#005aff"),
+        (15/40, "#0075ff"),
+        (20/40, "#00edff"),
+        (20/40, "#00ff00"),
+        (25/40, "#00a100"),
+        (25/40, "#dff200"),
+        (30/40, "#d56900"),
+        (30/40, "#dc5a00"),
+        (35/40, "#730000"),
+        (35/40, "#c86432"),
+        (40/40, "#542e15")])
+        vmax = 40
+        vmin = 0
+
+        return newcmp, vmax, vmin
+
+    async def send_image(image_path):
+        with open(image_path, 'rb') as image_file:
+            image = discord.File(image_file)
+            await ctx.send(file=image)
+
+    async def generate_and_send_image(centerX, centerY):
+        # Generate the SST map image
+        fig, ax = plt.subplots(subplot_kw={'projection': ccrs.PlateCarree()})
+        ax.coastlines()
+        gls = ax.gridlines(draw_labels=True, linewidth=0.5, linestyle='--', color='gray')
+        gls.top_labels = False   # suppress top labels
+        gls.right_labels = False  # suppress right labels
+
+        # Plot SST data from 10 degC to 35 degC
+        col, vm, vn = crw()
+        c = ax.contourf(lon, lat, sst, levels=np.arange(vn, vm, 1), transform=ccrs.PlateCarree(), cmap=col, extend='both')
+        # Add small contour lines for all SSTs
+        contour = ax.contour(lon, lat, sst, levels=np.arange(vn, vm, 1), colors='black', linewidths=0.5, transform=ccrs.PlateCarree())
+
+        # Add a contour line for 26 degrees Celsius
+        contour_level = 26
+        contour = ax.contour(lon, lat, sst, levels=[contour_level], colors='black', linewidths=2, transform=ccrs.PlateCarree())
+
+        plt.colorbar(c, label='Sea Surface Temperature (°C)')
+
+        legend_elements = [
+            Line2D([0], [0], marker='x', color='k', label=f'Center location', markerfacecolor='#444764', markersize=10),
+            Line2D([0], [0], marker='_', color='k', label='26 degC SST Isotherm', markerfacecolor='#444764', markersize=10),
+        ]
+
+        plt.scatter(centerX, centerY, color='k', marker='x', zorder=10000000)
+        if offset == 0:
+            ax.set_extent([centerX - 10, centerX + 10, centerY - 10, centerY + 10], crs=ccrs.PlateCarree())
+        else:
+            ax.set_extent([centerX - offset, centerX + offset, centerY - offset, centerY + offset], crs=ccrs.PlateCarree())
+        plt.title(f'SST Map over ({centerY}, {centerX}) on {date}:')
+        ax.legend(handles=legend_elements, loc='upper center')
+        plt.tight_layout()
+        image_path = f'SST_Map.png'
+        plt.savefig(image_path, format='png')
+        plt.close()
+
+        # Send the generated image
+        await send_image(image_path)
+
+        # Remove the temporary image file
+        os.remove(image_path)
+    
+    dateArray = date.split('/')
+    day, month, year = dateArray[0], dateArray[1], dateArray[2]
+    
+     # Construct the modified URL using the extracted components
+    url = f"https://www.ncei.noaa.gov/data/sea-surface-temperature-optimum-interpolation/v2.1/access/avhrr/{year}{month}/oisst-avhrr-v02r01.{year}{month}{day}.nc"
 
     # Download the netCDF file
     response = http.request('GET', url)
@@ -1657,6 +1812,14 @@ async def tcdat(ctx, btkID:str, yr:str):
         await ctx.send("Due to the IBTRACS database being ambiguous with this name, it cannot be used.")
         return
     
+    def _00x_to_xx00(des):
+        convert_map = {"L": "AL", "E": "EP", "C": "CP", "W":"WP", "A":"IO", "B":"IO", "S":"SH", "P":"SH"}
+        return convert_map[des[-1]] + des[:-1]
+
+    import re
+    if re.match(r"^\d{2}[A-Z]$", btkID):    
+        btkID = _00x_to_xx00(btkID)
+
     IBTRACS_ID = f"{btkID}{yr}"
     basin = ""
     atcf_id = ""
@@ -1715,6 +1878,14 @@ async def rammb(ctx, btkID:str, yr:str):
         await ctx.send(f"Error: {check} is the name of multiple storms in this database. Consider using their ATCF IDs instead.")
         return
     
+    def _00x_to_xx00(des):
+        convert_map = {"L": "AL", "E": "EP", "C": "CP", "W":"WP", "A":"IO", "B":"IO", "S":"SH", "P":"SH"}
+        return convert_map[des[-1]] + des[:-1]
+
+    import re
+    if re.match(r"^\d{2}[A-Z]$", btkID):    
+        btkID = _00x_to_xx00(btkID)
+
     IBTRACS_ID = f"{btkID}{yr}"
     basin = ""
     atcf_id = ""
@@ -1826,6 +1997,8 @@ async def ibtracs(ctx, btkID:str, yr:str):
     import os
     import numpy as np
     import matplotlib.colors as mcolors
+    import matplotlib.ticker as mticker
+    from cartopy.mpl.gridliner import LONGITUDE_FORMATTER, LATITUDE_FORMATTER
 
     print(f"Command received from server: {ctx.guild.name}")
     btkID = btkID.upper()
@@ -1847,12 +2020,22 @@ async def ibtracs(ctx, btkID:str, yr:str):
     if(btkID == 'UNNAMED'):
         await ctx.send("Due to the IBTRACS database being ambiguous with this name, it cannot be used.")
         return
+    
+    def _00x_to_xx00(des):
+        convert_map = {"L": "AL", "E": "EP", "C": "CP", "W":"WP", "A":"IO", "B":"IO", "S":"SH", "P":"SH"}
+        return convert_map[des[-1]] + des[:-1]
+
+    import re
+    if re.match(r"^\d{2}[A-Z]$", btkID):    
+        btkID = _00x_to_xx00(btkID)
+
     #Load in the loops for finding the latitude and longitude...
     IBTRACS_ID = f"{btkID}{yr}"
     cdx, cdy, winds, status, timeCheck, DateTime = [], [], [], [], [], []
     storm_name = ""
     s_ID = ""
     idl = False
+
     await ctx.send("Please wait. Due to my terrible potato laptop, the image may take a while to generate.")
     #Template to read the IBTRACS Data...
     with open('ibtracs.ALL.list.v04r01.csv', mode='r') as file:
@@ -1874,6 +2057,11 @@ async def ibtracs(ctx, btkID:str, yr:str):
                     status.append(lines[22])
                     timeCheck.append(lines[6][-8:-6])
                     storm_name = lines[5]
+
+    if len(winds) == 0:
+        await ctx.send("Error 404: Storm not found. Please check if your entry is correct.")
+        return
+
     await ctx.send("System located in database, generating track...")
     print("System located in database, generating track...")
     
@@ -1885,10 +2073,11 @@ async def ibtracs(ctx, btkID:str, yr:str):
 
     ax.add_feature(cfeature.COASTLINE, linewidth=0.5)
     ax.add_feature(cfeature.BORDERS, linewidth=0.5)
-    ax.add_feature(cfeature.LAND, facecolor='lightgray')
+    #ax.add_feature(cfeature.LAND, facecolor='lightgray')
     ax.add_feature(cfeature.OCEAN, facecolor='lightblue')
 
-    ax.gridlines(draw_labels=True, linewidth=0.5, linestyle='--', color='gray')
+    if idl != True:
+        ax.gridlines(draw_labels=True, linewidth=0.5, linestyle='--', color='gray')
     maxLat, minLat, maxLong, minLong = -999, 999, -999, 999
     vmax, statMaxIndx = 0, 0
 
@@ -1972,6 +2161,15 @@ async def ibtracs(ctx, btkID:str, yr:str):
     #----NEW-----
     ax.set_xlim(minLong-8, maxLong+8)
     ax.set_ylim(minLat-2, maxLat+2)
+    if idl == True:
+        gl = ax.gridlines(crs=ccrs.PlateCarree(), draw_labels=True, linewidth=0.5, color='gray', alpha=0.5, linestyle='--')
+        gl.xlocator = mticker.FixedLocator(range(-180, 181, 10))  # Control gridline spacing
+        gl.ylocator = mticker.FixedLocator(range(-90, 91, 10))
+        #gl.xformatter = LONGITUDE_FORMATTER
+        gl.yformatter = LATITUDE_FORMATTER
+        gl.xlabel_style = {'size': 8, 'color': 'k'}  # Customize label style
+        gl.ylabel_style = {'size': 8, 'color': 'k'}
+    
     #------------
 
     #Defining the legend box for the plot...
@@ -2016,6 +2214,7 @@ async def ibtracs(ctx, btkID:str, yr:str):
     plt.text(LineX[len(LineX)-1], LineY[len(LineX)-1]+0.5, f'{DateTime[len(LineX)-1]}')
 
     #Applying final touches...
+    print("Printing image...")
     plt.xlabel('Longitude')
     plt.ylabel('Latitude')
     if s_ID == ' ':
@@ -2024,8 +2223,9 @@ async def ibtracs(ctx, btkID:str, yr:str):
         plt.title(f'{s_ID} {storm_name}')
     plt.title(f'VMAX: {vmax} Kts', loc='left', fontsize=9)
     plt.title(f'ACE: {calc_ACE(winds, timeCheck)}', loc='right', fontsize=9)
-    ax.legend(handles=legend_elements, loc="best")
-    plt.grid(True)
+    ax.legend(handles=legend_elements, loc="upper left")
+    if idl == True:
+        plt.grid(True)
 
     #-----NEW-----------
     # Create the colorbar
@@ -2374,9 +2574,10 @@ async def season(ctx, basin:str, yr:str):
                     storm_name.append(lines[5])
         
     #-------------------------------DEBUG INFORMATION-----------------------------------
-    print(cdx, "\n", cdy, "\n", winds, "\n", status, "\n", timeCheck, "\n", storm_name, "\n", id)
+    #print(cdx, "\n", cdy, "\n", winds, "\n", status, "\n", timeCheck, "\n", storm_name, "\n", id)
     #-----------------------------------------------------------------------------------
     await ctx.send("Season located in database, generating track...")
+    print("Season located in database, generating track...")
     #Beginning work on the actual plotting of the data:
     if idl == True:
         fig, ax = plt.subplots(subplot_kw={'projection': ccrs.PlateCarree(central_longitude=180)}, figsize=(12, 10))
@@ -2385,10 +2586,10 @@ async def season(ctx, basin:str, yr:str):
 
     ax.add_feature(cfeature.COASTLINE, linewidth=0.5)
     ax.add_feature(cfeature.BORDERS, linewidth=0.5)
-    ax.add_feature(cfeature.LAND, facecolor='lightgray')
-    ax.add_feature(cfeature.OCEAN, facecolor='lightblue')
-
-    ax.gridlines(draw_labels=True, linewidth=0.5, linestyle='--', color='gray')
+    #ax.add_feature(cfeature.LAND, facecolor='lightgray')
+    #ax.add_feature(cfeature.OCEAN, facecolor='lightblue')
+    if idl != True:
+        ax.gridlines(draw_labels=True, linewidth=0.5, linestyle='--', color='gray')
     maxLat, minLat, maxLong, minLong = -999, 999, -999, 999
 
     #Plotting the TC Path...
@@ -2484,7 +2685,17 @@ async def season(ctx, basin:str, yr:str):
         print(ratio)
         ax.set_xlim(minLong-8, maxLong+8)
         ax.set_ylim(minLat-2, maxLat+2)
-       
+    
+    if idl==True:
+        import matplotlib.ticker as mticker
+        from cartopy.mpl.gridliner import LONGITUDE_FORMATTER, LATITUDE_FORMATTER
+        gl = ax.gridlines(crs=ccrs.PlateCarree(), draw_labels=True, linewidth=0.5, color='gray', alpha=0.5, linestyle='--')
+        gl.xlocator = mticker.FixedLocator(range(-180, 181, 10))  # Control gridline spacing
+        gl.ylocator = mticker.FixedLocator(range(-90, 91, 10))
+        #gl.xformatter = LONGITUDE_FORMATTER
+        gl.yformatter = LATITUDE_FORMATTER
+        gl.xlabel_style = {'size': 8, 'color': 'k'}  # Customize label style
+        gl.ylabel_style = {'size': 8, 'color': 'k'}
 
     legend_elements = [
                     Line2D([0], [0], marker='^', color='w', label='EX/LO/DB',markerfacecolor='#444764', markersize=10),
@@ -3048,6 +3259,15 @@ async def smap(ctx, btkID, nodeType:str):
         return soup.get_text()
     
     btkID = btkID.lower()
+
+    def _00x_to_xx00(des):
+        convert_map = {"l": "al", "e": "ep", "c": "cp", "w":"wp", "a":"io", "b":"io", "s":"sh", "p":"sh"}
+        return convert_map[des[-1]] + des[:-1]
+
+    import re
+    if re.match(r"^\d{2}[a-z]$", btkID):    
+        btkID = _00x_to_xx00(btkID)
+
     nodeType = nodeType.upper()
     if btkID[:2] in ['sh', 'wp', 'io']:
         btkUrl = f'https://www.ssd.noaa.gov/PS/TROP/DATA/ATCF/JTWC/b{btkID}2024.dat'
@@ -3215,7 +3435,153 @@ async def smap(ctx, btkID, nodeType:str):
     ds.close()
     os.remove(destination)
 
+@bot.command(name='smap_custom')
+async def smap_custom(ctx, cY:float, cX:float, nodeType:str):
+    import xarray as xr
+    import matplotlib.pyplot as plt
+    import cartopy.crs as ccrs
+    from datetime import datetime
+    import requests
+    from io import BytesIO
+    import numpy as np
+    import os
+    from matplotlib.lines import Line2D
 
+    if cY < -90 or cY > 90 or cX > 179.99 or cX < -179.99:
+        await ctx.send("Out of bounds!")
+        return
+
+    await ctx.send("Please hold as the data is generated.")
+    nodeType = nodeType.upper()
+    current_datetime = datetime.now()
+    year = str(current_datetime.year)
+    month = str(current_datetime.month).zfill(2)
+    day = str(current_datetime.day).zfill(2)
+
+    # Define the storm's coordinates
+    storm_lat = cY  # Example latitude
+    storm_lon = cX  # Example longitude
+    storm_lon = storm_lon if storm_lon > 0 else 360 + storm_lon
+
+    # Calculate latitude and longitude bounds for the bounding box
+    lat_min = storm_lat - 10
+    lat_max = storm_lat + 10
+    lon_min = storm_lon - 10
+    lon_max = storm_lon + 10
+
+    url = f'https://data.remss.com/smap/wind/L3/v01.0/daily/NRT/{year}/RSS_smap_wind_daily_{year}_{month}_{day}_NRT_v01.0.nc'
+
+    destination = f'ersst.v5.{year}{month}.nc'
+
+    response = requests.get(url)
+    with open(destination, 'wb') as file:
+        file.write(response.content)
+
+    await ctx.send("Generating data if available...")
+    # Open the NetCDF file using xarray
+    ds = xr.open_dataset(destination, decode_times=False)
+
+    # Extract the wind variable
+    wind = ds['wind']
+
+    # Extract wind data within the bounding box
+    wind_bounded = wind.sel(lat=slice(lat_min, lat_max), lon=slice(lon_min, lon_max))
+
+    # Check if wind data is available within the bounding box
+    if len(wind_bounded.lat) == 0 or len(wind_bounded.lon) == 0:
+        print("No data available within the bounding box.")
+    else:
+        nodal = 0 if nodeType == 'ASC' else 1
+
+        # Find the nearest latitude and longitude values in the dataset
+        nearest_lat_index = np.abs(ds.lat.values - storm_lat).argmin()
+        nearest_lon_index = np.abs(ds.lon.values - storm_lon).argmin()
+
+        minute_data = ds.minute[nearest_lat_index, nearest_lon_index]
+        print(minute_data)
+
+        minute_data = ds.minute[nearest_lat_index, nearest_lon_index]
+        print(minute_data)
+
+        # Access the minute data for the nearest coordinate
+        minute_data = ds.minute.isel(node=nodal).values[nearest_lat_index, nearest_lon_index]
+        timePass=""
+
+        # Check if minute data is available
+        if np.isnan(minute_data):
+            print("No minute data available for the nearest coordinate.")
+            timePass += "NaN"
+        else:
+            # Print the minute data value
+            print("Minute data value for the nearest coordinate:", minute_data)
+            hr = str(int(minute_data) // 60).zfill(2)
+            min = str(int(minute_data) % 60).zfill(2)
+            timePass += f"{hr}{min} UTC"
+
+        # Find the maximum wind value within the bounding box
+        max_wind_value = wind_bounded.max()
+
+        # Create the plot
+        fig = plt.figure(figsize=(10, 6))
+        ax = plt.axes(projection=ccrs.PlateCarree())
+
+        # Plot wind data using pcolormesh
+        mesh = ax.pcolormesh(wind.lon, wind.lat, (wind.isel(node=nodal))*1.944, transform=ccrs.PlateCarree(), cmap='gist_ncar', vmin=0, vmax=150)
+        contour_17 = ax.contour(wind.lon, wind.lat, wind.isel(node=nodal), levels=[17], colors='black', transform=ccrs.PlateCarree())
+        contour_25 = ax.contour(wind.lon, wind.lat, wind.isel(node=nodal), levels=[25], colors='green', transform=ccrs.PlateCarree())
+        contour_32 = ax.contour(wind.lon, wind.lat, wind.isel(node=nodal), levels=[32], colors='red', transform=ccrs.PlateCarree())
+
+        # Add coastlines
+        ax.coastlines()
+
+        gls = ax.gridlines(draw_labels=True, linewidth=0.5, linestyle='--', color='gray')
+        gls.top_labels=False   # suppress top labels
+        gls.right_labels=False # suppress right labels
+
+        # Set the extent of the plot to zoom into the bounding box
+        ax.set_extent([lon_min, lon_max, lat_min, lat_max], crs=ccrs.PlateCarree())
+
+        legend_elements = [
+        Line2D([0], [0], marker='_', color='k', label='34kt winds', markersize=10),
+        Line2D([0], [0], marker='_', color='g', label='50kt winds', markersize=10),
+        Line2D([0], [0], marker='_', color='r', label='64kt winds', markersize=10),
+        ]
+
+        # Add title
+        plt.title('SMAP', loc='left')
+        ax.legend(handles=legend_elements, loc='upper right')
+
+        # Add colorbar
+        cbar = plt.colorbar(mesh, ax=ax, shrink=0.5, extend='both')
+        cbar.set_label('Wind Speed (kts)')
+
+        # Print the maximum wind value within the bounding box
+        max_wind_value = max_wind_value.values.item()*1.944  # Get the raw value
+
+        def oneMin(raw_SMAP):
+            processed_SMAP = (362.644732816453 * raw_SMAP + 2913.62505913216) / 380.88384339523
+
+            #Display output:
+            processed_SMAP = "{:.2f}".format(processed_SMAP)
+            return processed_SMAP
+
+        plt.title(f'SMAP SFC Winds\nTime: {timePass}, {year}/{month}/{day}', loc='left', fontsize=7)
+        plt.title(f"Maximum 10-min wind value: {max_wind_value:.2f} kts, 1-min: {oneMin(max_wind_value)} kt", loc='right', fontsize=8)
+
+        # Show the plot
+        r = np.random.randint(1, 10)
+        image_path = f'Track_Map{r}.png'
+        plt.savefig(image_path, format='png', bbox_inches='tight')
+        plt.close()
+
+        with open(image_path, 'rb') as image_file:
+            image = discord.File(image_file)
+            await ctx.send(file=image)
+
+        os.remove(image_path)
+        ds.close()
+
+        os.remove(destination)  
 
 @bot.command(name='pdolatest')
 async def pdoLatest(ctx):
@@ -3599,6 +3965,15 @@ async def tcprofile(ctx, btkID:str, yr:str):
     if(btkID == 'NOT_NAMED'):
         await ctx.send("Due to the IBTRACS database being ambiguous with this name, it cannot be used.")
         return
+
+    def _00x_to_xx00(des):
+        convert_map = {"L": "AL", "E": "EP", "C": "CP", "W":"WP", "A":"IO", "B":"IO", "S":"SH", "P":"SH"}
+        return convert_map[des[-1]] + des[:-1]
+
+    import re
+    if re.match(r"^\d{2}[A-Z]$", btkID):    
+        btkID = _00x_to_xx00(btkID)
+
     #Load in the loops for finding the latitude and longitude...
     IBTRACS_ID = f"{btkID}{yr}"
     cdx, cdy, winds, status, timeCheck, DateTime, pres = [], [], [], [], [], [], []
@@ -5710,4 +6085,4 @@ async def commandHelp(ctx):
     await ctx.send("For the full command list, consult the google document here:\n")
     await ctx.send(url)
 
-bot.run(AUTHENTICATION_KEY)
+bot.run(AUTHENTICATION_TOKEN)
