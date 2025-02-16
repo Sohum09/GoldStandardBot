@@ -654,6 +654,33 @@ async def ckz(ctx, vmax:float, storm_movement:float, latitude:float, roci:float,
 async def rev_ckz(ctx, pres:float, storm_movement:float, latitude:float, roci:float, envp:float):
     import numpy as np
     import math
+    def final_roci(roci):
+        return max((roci / 60) / 8 + 0.1, 0.4)  # if ROCI < 0.4, default to 0.4
+
+    def final_move(movespeed):
+        return 1.5 * math.pow(movespeed, 0.63)
+
+    def calculate_wind(pressure, movespeed, lat, roci, envpres):
+        a = 1 / (18.26 ** 2) if lat <= 18 else 1 / (24.254 ** 2)
+        b = 0.267 if lat <= 18 else 0.483
+        c = (pressure - 5.962 - envpres - 2 + (6.8 * final_roci(roci))) if lat <= 18 \
+            else (pressure - 23.286 - envpres - 2 + (12.587 * final_roci(roci)) + (0.483 * lat))
+        
+        discriminant = b ** 2 - 4 * a * c  # b^2 - 4ac
+        
+        if discriminant < 0:
+            return "No real solution"
+        
+        wind1 = (-b + math.sqrt(discriminant)) / (2 * a) + final_move(movespeed)
+        wind2 = (-b - math.sqrt(discriminant)) / (2 * a) + final_move(movespeed)
+        
+        positive_wind = next((wind for wind in [wind1, wind2] if wind >= 0), None)
+        
+        return f":arrow_forward: {positive_wind:.2f} knots" if positive_wind is not None else "No valid wind speed"
+    
+    await ctx.send(calculate_wind(pres, storm_movement, latitude, roci, envp))
+    #Legacy Code below
+    '''
     latitude = abs(latitude)
     poci = pres - 6 #Approximation to reduce the error
 
@@ -669,7 +696,7 @@ async def rev_ckz(ctx, pres:float, storm_movement:float, latitude:float, roci:fl
 
     #Make the output a little presentable:
     vmax = "{:.2f}".format(vmax)
-    await ctx.send(f"Output winds: {vmax} kt")
+    await ctx.send(f"Output winds: {vmax} kt")'''
 
 @bot.command(name='messup')
 async def messup(ctx):
@@ -986,12 +1013,12 @@ async def tcpass(ctx, btkID: str):
         soup = BeautifulSoup(html_content, 'html.parser')
         return soup.get_text()
     
+    from datetime import datetime
+    basinDate = datetime.now()
+    basinmonth = basinDate.month
+    basinYear = basinDate.year
     if btkID[:2] in ['sh', 'wp', 'io']:
         if btkID[:2] == 'sh':
-            from datetime import datetime
-            basinDate = datetime.now()
-            basinmonth = basinDate.month
-            basinYear = basinDate.year
             if basinmonth >= 7:
                 btkUrl = f'https://www.ssd.noaa.gov/PS/TROP/DATA/ATCF/JTWC/b{btkID}{basinYear+1}.dat'
             else:
@@ -1286,12 +1313,12 @@ async def tcsst(ctx, btkID: str):
         # Remove the temporary image file
         os.remove(image_path)
 
+    from datetime import datetime
+    basinDate = datetime.now()
+    basinmonth = basinDate.month
+    basinYear = basinDate.year
     if btkID[:2] in ['sh', 'wp', 'io']:
         if btkID[:2] == 'sh':
-            from datetime import datetime
-            basinDate = datetime.now()
-            basinmonth = basinDate.month
-            basinYear = basinDate.year
             if basinmonth >= 7:
                 btkUrl = f'https://www.ssd.noaa.gov/PS/TROP/DATA/ATCF/JTWC/b{btkID}{basinYear+1}.dat'
             else:
@@ -3269,10 +3296,20 @@ async def smap(ctx, btkID, nodeType:str):
         btkID = _00x_to_xx00(btkID)
 
     nodeType = nodeType.upper()
+    from datetime import datetime
+    basinDate = datetime.now()
+    basinmonth = basinDate.month
+    basinYear = basinDate.year
     if btkID[:2] in ['sh', 'wp', 'io']:
-        btkUrl = f'https://www.ssd.noaa.gov/PS/TROP/DATA/ATCF/JTWC/b{btkID}2024.dat'
+        if btkID[:2] == 'sh':
+            if basinmonth >= 7:
+                btkUrl = f'https://www.ssd.noaa.gov/PS/TROP/DATA/ATCF/JTWC/b{btkID}{basinYear+1}.dat'
+            else:
+                btkUrl = f'https://www.ssd.noaa.gov/PS/TROP/DATA/ATCF/JTWC/b{btkID}{basinYear}.dat'
+        else:
+            btkUrl = f'https://www.ssd.noaa.gov/PS/TROP/DATA/ATCF/JTWC/b{btkID}{basinYear}.dat'
     else:
-        btkUrl = f'https://www.ssd.noaa.gov/PS/TROP/DATA/ATCF/NHC/b{btkID}2024.dat'
+        btkUrl = f'https://www.ssd.noaa.gov/PS/TROP/DATA/ATCF/NHC/b{btkID}{basinYear}.dat'
 
     btk_data = fetch_url(btkUrl)
     parsed_data = parse_data(btk_data)
@@ -6085,4 +6122,4 @@ async def commandHelp(ctx):
     await ctx.send("For the full command list, consult the google document here:\n")
     await ctx.send(url)
 
-bot.run(AUTHENTICATION_TOKEN)
+bot.run(AUTH_TOKEN)
