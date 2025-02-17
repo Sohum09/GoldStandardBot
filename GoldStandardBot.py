@@ -1255,8 +1255,8 @@ async def tcsst(ctx, btkID: str):
         (15/40, "#0075ff"),
         (20/40, "#00edff"),
         (20/40, "#00ff00"),
-        (25/40, "#00a100"),
-        (25/40, "#dff200"),
+        (27/40, "#00a100"),
+        (27/40, "#dff200"),
         (30/40, "#d56900"),
         (30/40, "#dc5a00"),
         (35/40, "#730000"),
@@ -1422,8 +1422,8 @@ async def tcsst_custom(ctx, centerY:float, centerX:float, offset=0):
         (15/40, "#0075ff"),
         (20/40, "#00edff"),
         (20/40, "#00ff00"),
-        (25/40, "#00a100"),
-        (25/40, "#dff200"),
+        (27/40, "#00a100"),
+        (27/40, "#dff200"),
         (30/40, "#d56900"),
         (30/40, "#dc5a00"),
         (35/40, "#730000"),
@@ -2198,7 +2198,7 @@ async def ibtracs(ctx, btkID:str, yr:str):
         gl.ylabel_style = {'size': 8, 'color': 'k'}
     
     #------------
-
+    #---MODDED---
     #Defining the legend box for the plot...
     legend_elements = [
                     Line2D([0], [0], marker='^', color='w', label='Non-Tropical',markerfacecolor='#444764', markersize=10),
@@ -2210,7 +2210,7 @@ async def ibtracs(ctx, btkID:str, yr:str):
     bounds = [0, 34, 64, 81, 96, 112, 137, 200]
     norm = mcolors.BoundaryNorm(bounds, len(colors))
     labels = ['TD', 'TS', 'C1', 'C2', 'C3', 'C4', 'C5']
-
+    #------------
     #Building the function that calculates ACE...
     def calc_ACE(winds, timeCheck):
         ace = 0
@@ -2700,7 +2700,7 @@ async def season(ctx, basin:str, yr:str):
         ax.set_extent([40, 110, 0, 40], crs=ccrs.PlateCarree())
     elif basin == 'SI':
         ax.set_extent([20, 140, -40, 0], crs=ccrs.PlateCarree())
-    elif basin == 'SP': 
+    else:  # basin == 'SP' or any specific value really 
         #Setting the coordinates for the bounding box...
         center_x = (minLong + maxLong)/2
         center_y = (minLat + maxLat)/2
@@ -2780,6 +2780,8 @@ async def seasongen_atcf(ctx, url:str, basin=''):
     from bs4 import BeautifulSoup
     import os
     import numpy as np
+    import matplotlib.colors as mcolors
+    import matplotlib.ticker as mticker
     basin = basin.upper()
     
     idl = False
@@ -2834,9 +2836,6 @@ async def seasongen_atcf(ctx, url:str, basin=''):
             stormData[2] = stormData[2].strip() #Bugfix
             timeCheck.append(int(stormData[2][-2:]))
         
-    #-------------------------------DEBUG INFORMATION-----------------------------------
-    print(cdx, "\n", cdy, "\n", winds, "\n", status, "\n", timeCheck, "\n", storm_name, "\n", id)
-    #-----------------------------------------------------------------------------------
     await ctx.send("Season located in database, generating track...")
     #Beginning work on the actual plotting of the data:
     if idl == True:
@@ -2846,10 +2845,11 @@ async def seasongen_atcf(ctx, url:str, basin=''):
 
     ax.add_feature(cfeature.COASTLINE, linewidth=0.5)
     ax.add_feature(cfeature.BORDERS, linewidth=0.5)
-    ax.add_feature(cfeature.LAND, facecolor='lightgray')
+    #ax.add_feature(cfeature.LAND, facecolor='lightgray')
     ax.add_feature(cfeature.OCEAN, facecolor='lightblue')
 
-    ax.gridlines(draw_labels=True, linewidth=0.5, linestyle='--', color='gray')
+    if idl != True:
+        ax.gridlines(draw_labels=True, linewidth=0.5, linestyle='--', color='gray')
     maxLat, minLat, maxLong, minLong = -999, 999, -999, 999
 
     #Plotting the TC Path...
@@ -2943,28 +2943,32 @@ async def seasongen_atcf(ctx, url:str, basin=''):
 
         ratio = (center_height/center_width)
         print(ratio)
-        if ratio < 0.3:
-            ax.set_xlim(center_x-center_width, center_x+center_width)
-            ax.set_ylim(center_y-(center_width/2), center_y+(center_width/2))
-        elif ratio > 0.7:
-            ax.set_xlim(center_x-(center_height), center_x+(center_height))
-            ax.set_ylim(center_y-center_height, center_y+center_height)
-        else:
-            ax.set_xlim(center_x-center_width, center_x+center_width)
-            ax.set_ylim(center_y-center_height, center_y+center_height)
-       
+        ax.set_xlim(minLong-8, maxLong+8)
+        ax.set_ylim(minLat-2, maxLat+2)
+    
+    if idl==True:
+        import matplotlib.ticker as mticker
+        from cartopy.mpl.gridliner import LONGITUDE_FORMATTER, LATITUDE_FORMATTER
+        gl = ax.gridlines(crs=ccrs.PlateCarree(), draw_labels=True, linewidth=0.5, color='gray', alpha=0.5, linestyle='--')
+        gl.xlocator = mticker.FixedLocator(range(-180, 181, 10))  # Control gridline spacing
+        gl.ylocator = mticker.FixedLocator(range(-90, 91, 10))
+        #gl.xformatter = LONGITUDE_FORMATTER
+        gl.yformatter = LATITUDE_FORMATTER
+        gl.xlabel_style = {'size': 8, 'color': 'k'}  # Customize label style
+        gl.ylabel_style = {'size': 8, 'color': 'k'}
 
     legend_elements = [
                     Line2D([0], [0], marker='^', color='w', label='EX/LO/DB',markerfacecolor='#444764', markersize=10),
                     Line2D([0], [0], marker='s', color='w', label='SS/SD',markerfacecolor='#444764', markersize=10),
-                    Line2D([0], [0], marker='o', color='w', label='TD',markerfacecolor='b', markersize=10),
-                    Line2D([0], [0], marker='o', color='w', label='TS',markerfacecolor='g', markersize=10),
-                    Line2D([0], [0], marker='o', color='w', label='C1',markerfacecolor='#ffff00', markersize=10),
-                    Line2D([0], [0], marker='o', color='w', label='C2',markerfacecolor='#ffa001', markersize=10),
-                    Line2D([0], [0], marker='o', color='w', label='C3',markerfacecolor='#ff5908', markersize=10),
-                    Line2D([0], [0], marker='o', color='w', label='C4',markerfacecolor='r', markersize=10),
-                    Line2D([0], [0], marker='o', color='w', label='C5',markerfacecolor='m', markersize=10),
     ]
+
+    # Define the color mapping for wind speeds
+    colors = ['b', 'g', '#ffff00', '#ffa001', '#ff5908', 'r', 'm']
+    bounds = [0, 34, 64, 81, 96, 112, 137, 200]
+    norm = mcolors.BoundaryNorm(bounds, len(colors))
+    labels = ['TD', 'TS', 'C1', 'C2', 'C3', 'C4', 'C5']
+    #------------
+
 
     #Building the function that calculates ACE...
     def calc_ACE(winds, timeCheck):
@@ -2993,6 +2997,18 @@ async def seasongen_atcf(ctx, url:str, basin=''):
         location = "upper left"
     ax.legend(handles=legend_elements, loc=location)
     plt.grid(True)
+    #-----NEW-----------
+    # Create the colorbar
+    cmap = mcolors.ListedColormap(colors)
+    norm = mcolors.BoundaryNorm(bounds, cmap.N)
+    sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
+    sm.set_array([])
+
+    # Add colorbar to the plot
+    cbar = plt.colorbar(sm, ticks=bounds, orientation='horizontal', pad=0.05, aspect=50, ax=ax, shrink=0.5)
+    cbar.set_label('SSHWS Windspeeds (Kts)')
+    cbar.ax.set_xticklabels(['0', '34', '64', '81', '96', '112', '137', '200'])
+    #---------------------
     plt.tight_layout()
     
     r = np.random.randint(1, 10)
@@ -3016,7 +3032,8 @@ async def seasongen_hurdat(ctx, url:str, basin=''):
     from bs4 import BeautifulSoup
     import numpy as np
     import os
-
+    import matplotlib.colors as mcolors
+    import matplotlib.ticker as mticker
     await ctx.send("Please be patient. As this is a season, the plot may take a little while to generate.")
     basin = basin.upper()
 
@@ -3082,12 +3099,6 @@ async def seasongen_hurdat(ctx, url:str, basin=''):
 
     print(extLines)
 
-
-    #-------------------------------DEBUG INFORMATION-----------------------------------
-    print(cdx, "\n", cdy, "\n", winds, "\n", status, "\n", timeCheck, "\n")
-    #-----------------------------------------------------------------------------------
-
-    
     #Beginning work on the actual plotting of the data:
     if idl == True:
         fig, ax = plt.subplots(subplot_kw={'projection': ccrs.PlateCarree(central_longitude=180)}, figsize=(12, 10))
@@ -3097,10 +3108,11 @@ async def seasongen_hurdat(ctx, url:str, basin=''):
 
     ax.add_feature(cfeature.COASTLINE, linewidth=0.5)
     ax.add_feature(cfeature.BORDERS, linewidth=0.5)
-    ax.add_feature(cfeature.LAND, facecolor='lightgray')
+    #ax.add_feature(cfeature.LAND, facecolor='lightgray')
     ax.add_feature(cfeature.OCEAN, facecolor='lightblue')
 
-    ax.gridlines(draw_labels=True, linewidth=0.5, linestyle='--', color='gray')
+    if idl != True:
+        ax.gridlines(draw_labels=True, linewidth=0.5, linestyle='--', color='gray')
     maxLat, minLat, maxLong, minLong = -999, 999, -999, 999
 
     LineX = []
@@ -3197,28 +3209,31 @@ async def seasongen_hurdat(ctx, url:str, basin=''):
 
         ratio = (center_height/center_width)
         print(ratio)
-        if ratio < 0.3:
-            ax.set_xlim(center_x-center_width, center_x+center_width)
-            ax.set_ylim(center_y-(center_width/2), center_y+(center_width/2))
-        elif ratio > 0.7:
-            ax.set_xlim(center_x-(center_height), center_x+(center_height))
-            ax.set_ylim(center_y-center_height, center_y+center_height)
-        else:
-            ax.set_xlim(center_x-center_width, center_x+center_width)
-            ax.set_ylim(center_y-center_height, center_y+center_height)
-
+        ax.set_xlim(minLong-8, maxLong+8)
+        ax.set_ylim(minLat-2, maxLat+2)
+    
+    if idl==True:
+        import matplotlib.ticker as mticker
+        from cartopy.mpl.gridliner import LONGITUDE_FORMATTER, LATITUDE_FORMATTER
+        gl = ax.gridlines(crs=ccrs.PlateCarree(), draw_labels=True, linewidth=0.5, color='gray', alpha=0.5, linestyle='--')
+        gl.xlocator = mticker.FixedLocator(range(-180, 181, 10))  # Control gridline spacing
+        gl.ylocator = mticker.FixedLocator(range(-90, 91, 10))
+        #gl.xformatter = LONGITUDE_FORMATTER
+        gl.yformatter = LATITUDE_FORMATTER
+        gl.xlabel_style = {'size': 8, 'color': 'k'}  # Customize label style
+        gl.ylabel_style = {'size': 8, 'color': 'k'}
 
     legend_elements = [
                     Line2D([0], [0], marker='^', color='w', label='EX/LO/DB',markerfacecolor='#444764', markersize=10),
                     Line2D([0], [0], marker='s', color='w', label='SS/SD',markerfacecolor='#444764', markersize=10),
-                    Line2D([0], [0], marker='o', color='w', label='TD',markerfacecolor='b', markersize=10),
-                    Line2D([0], [0], marker='o', color='w', label='TS',markerfacecolor='g', markersize=10),
-                    Line2D([0], [0], marker='o', color='w', label='C1',markerfacecolor='#ffff00', markersize=10),
-                    Line2D([0], [0], marker='o', color='w', label='C2',markerfacecolor='#ffa001', markersize=10),
-                    Line2D([0], [0], marker='o', color='w', label='C3',markerfacecolor='#ff5908', markersize=10),
-                    Line2D([0], [0], marker='o', color='w', label='C4',markerfacecolor='r', markersize=10),
-                    Line2D([0], [0], marker='o', color='w', label='C5',markerfacecolor='m', markersize=10),
     ]
+
+    # Define the color mapping for wind speeds
+    colors = ['b', 'g', '#ffff00', '#ffa001', '#ff5908', 'r', 'm']
+    bounds = [0, 34, 64, 81, 96, 112, 137, 200]
+    norm = mcolors.BoundaryNorm(bounds, len(colors))
+    labels = ['TD', 'TS', 'C1', 'C2', 'C3', 'C4', 'C5']
+    #------------
 
     #Building the function that calculates ACE...
     def calc_ACE(winds, timeCheck):
@@ -3248,6 +3263,19 @@ async def seasongen_hurdat(ctx, url:str, basin=''):
         location = "upper left"
     ax.legend(handles=legend_elements, loc=location)
     plt.grid(True)
+    #-----NEW-----------
+    # Create the colorbar
+    cmap = mcolors.ListedColormap(colors)
+    norm = mcolors.BoundaryNorm(bounds, cmap.N)
+    sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
+    sm.set_array([])
+
+    # Add colorbar to the plot
+    cbar = plt.colorbar(sm, ticks=bounds, orientation='horizontal', pad=0.05, aspect=50, ax=ax, shrink=0.5)
+    cbar.set_label('SSHWS Windspeeds (Kts)')
+    cbar.ax.set_xticklabels(['0', '34', '64', '81', '96', '112', '137', '200'])
+    #---------------------
+
     plt.tight_layout()
     r = np.random.randint(1, 10)
     image_path = f'Track_Map{r}.png'
@@ -4285,6 +4313,9 @@ async def trackgen_hurdat(ctx, url:str):
     import urllib3
     from bs4 import BeautifulSoup
     import os
+    import matplotlib.colors as mcolors
+    import matplotlib.ticker as mticker
+    from cartopy.mpl.gridliner import LONGITUDE_FORMATTER, LATITUDE_FORMATTER
 
     urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
     http = urllib3.PoolManager(cert_reqs='CERT_NONE', assert_hostname=False)
@@ -4344,10 +4375,11 @@ async def trackgen_hurdat(ctx, url:str):
 
     ax.add_feature(cfeature.COASTLINE, linewidth=0.5)
     ax.add_feature(cfeature.BORDERS, linewidth=0.5)
-    ax.add_feature(cfeature.LAND, facecolor='lightgray')
+    #ax.add_feature(cfeature.LAND, facecolor='lightgray')
     ax.add_feature(cfeature.OCEAN, facecolor='lightblue')
 
-    ax.gridlines(draw_labels=True, linewidth=0.5, linestyle='--', color='gray')
+    if idl != True:
+        ax.gridlines(draw_labels=True, linewidth=0.5, linestyle='--', color='gray')
     maxLat, minLat, maxLong, minLong = -999, 999, -999, 999
     vmax, pmin = 0, 9999
 
@@ -4412,13 +4444,9 @@ async def trackgen_hurdat(ctx, url:str):
 
     center_width = abs(maxLong - minLong)
     center_height = abs(maxLat - minLat)
-    if center_width==0 and center_height==0:
-        ax.set_xlim(center_x-10, center_x+10)
-        ax.set_ylim(center_y-10, center_y+10)
-    else:
-        ratio = (center_height/center_width)
-        print(ratio)
-        if ratio < 0.3:
+
+    '''
+        if ratio < 0.3: 
             ax.set_xlim(center_x-center_width, center_x+center_width)
             ax.set_ylim(center_y-(center_width/2), center_y+(center_width/2))
         elif ratio > 0.7:
@@ -4427,20 +4455,32 @@ async def trackgen_hurdat(ctx, url:str):
         else:
             ax.set_xlim(center_x-center_width, center_x+center_width)
             ax.set_ylim(center_y-center_height, center_y+center_height)
+        '''
+    #----NEW_H-----
+    ax.set_xlim(minLong-8, maxLong+8)
+    ax.set_ylim(minLat-2, maxLat+2)
 
+    if idl == True:
+        gl = ax.gridlines(crs=ccrs.PlateCarree(), draw_labels=True, linewidth=0.5, color='gray', alpha=0.5, linestyle='--')
+        gl.xlocator = mticker.FixedLocator(range(-180, 181, 10))  # Control gridline spacing
+        gl.ylocator = mticker.FixedLocator(range(-90, 91, 10))
+        #gl.xformatter = LONGITUDE_FORMATTER
+        gl.yformatter = LATITUDE_FORMATTER
+        gl.xlabel_style = {'size': 8, 'color': 'k'}  # Customize label style
+        gl.ylabel_style = {'size': 8, 'color': 'k'}
+    
+    #------------
     #Defining the legend box for the plot...
     legend_elements = [
                     Line2D([0], [0], marker='^', color='w', label='Non-Tropical',markerfacecolor='#444764', markersize=10),
                     Line2D([0], [0], marker='s', color='w', label='Sub-Tropical',markerfacecolor='#444764', markersize=10),
-                    Line2D([0], [0], marker='o', color='w', label='Tropical Depression',markerfacecolor='b', markersize=10),
-                    Line2D([0], [0], marker='o', color='w', label='Tropical Storm',markerfacecolor='g', markersize=10),
-                    Line2D([0], [0], marker='o', color='w', label='Category 1',markerfacecolor='#ffff00', markersize=10),
-                    Line2D([0], [0], marker='o', color='w', label='Category 2',markerfacecolor='#ffa001', markersize=10),
-                    Line2D([0], [0], marker='o', color='w', label='Category 3',markerfacecolor='#ff5908', markersize=10),
-                    Line2D([0], [0], marker='o', color='w', label='Category 4',markerfacecolor='r', markersize=10),
-                    Line2D([0], [0], marker='o', color='w', label='Category 5',markerfacecolor='m', markersize=10),
     ]
-
+    # Define the color mapping for wind speeds
+    colors = ['b', 'g', '#ffff00', '#ffa001', '#ff5908', 'r', 'm']
+    bounds = [0, 34, 64, 81, 96, 112, 137, 200]
+    norm = mcolors.BoundaryNorm(bounds, len(colors))
+    labels = ['TD', 'TS', 'C1', 'C2', 'C3', 'C4', 'C5']
+    #------------
     #Building the function that calculates ACE...
     def calc_ACE(winds, timeCheck):
         ace = 0
@@ -4473,12 +4513,23 @@ async def trackgen_hurdat(ctx, url:str):
     plt.ylabel('Latitude')
     plt.title(f'Peak Intensity: {vmax} Kts, {pmin} hPa', loc='left')
     plt.title(f'ACE: {calc_ACE(winds, timeCheck)}', loc='right')
-    ax.legend(handles=legend_elements, loc='upper left')
+    ax.legend(handles=legend_elements, loc='best')
     plt.grid(True)
-    plt.tight_layout()
-    # Adjust spacing above and below the plot
-    
+    #-----NEW-----------
+    # Create the colorbar
+    cmap = mcolors.ListedColormap(colors)
+    norm = mcolors.BoundaryNorm(bounds, cmap.N)
+    sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
+    sm.set_array([])
 
+    # Add colorbar to the plot
+    cbar = plt.colorbar(sm, ticks=bounds, orientation='horizontal', pad=0.05, aspect=50, ax=ax, shrink=0.5)
+    cbar.set_label('SSHWS Windspeeds (Kts)')
+    cbar.ax.set_xticklabels(['0', '34', '64', '81', '96', '112', '137', '200'])
+    #---------------------
+    plt.tight_layout()
+
+    # Adjust spacing above and below the plot
     image_path = f'Track_Map.png'
     plt.savefig(image_path, format='png', bbox_inches='tight')
     plt.close()
@@ -4498,6 +4549,9 @@ async def trackgen_atcf(ctx, url:str):
     import urllib3
     from bs4 import BeautifulSoup
     import os
+    import matplotlib.colors as mcolors
+    import matplotlib.ticker as mticker
+    from cartopy.mpl.gridliner import LONGITUDE_FORMATTER, LATITUDE_FORMATTER
 
     urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
     http = urllib3.PoolManager(cert_reqs='CERT_NONE', assert_hostname=False)
@@ -4557,10 +4611,11 @@ async def trackgen_atcf(ctx, url:str):
 
     ax.add_feature(cfeature.COASTLINE, linewidth=0.5)
     ax.add_feature(cfeature.BORDERS, linewidth=0.5)
-    ax.add_feature(cfeature.LAND, facecolor='lightgray')
+    #ax.add_feature(cfeature.LAND, facecolor='lightgray')
     ax.add_feature(cfeature.OCEAN, facecolor='lightblue')
 
-    ax.gridlines(draw_labels=True, linewidth=0.5, linestyle='--', color='gray')
+    if idl != True:
+        ax.gridlines(draw_labels=True, linewidth=0.5, linestyle='--', color='gray')
     maxLat, minLat, maxLong, minLong = -999, 999, -999, 999
     vmax, pmin = 0, 9999
 
@@ -4626,13 +4681,8 @@ async def trackgen_atcf(ctx, url:str):
     center_width = abs(maxLong - minLong)
     center_height = abs(maxLat - minLat)
 
-    if center_width==0 and center_height==0:
-        ax.set_xlim(center_x-10, center_x+10)
-        ax.set_ylim(center_y-10, center_y+10)
-    else:
-        ratio = (center_height/center_width)
-        print(ratio)
-        if ratio < 0.3:
+    '''
+        if ratio < 0.3: 
             ax.set_xlim(center_x-center_width, center_x+center_width)
             ax.set_ylim(center_y-(center_width/2), center_y+(center_width/2))
         elif ratio > 0.7:
@@ -4641,19 +4691,32 @@ async def trackgen_atcf(ctx, url:str):
         else:
             ax.set_xlim(center_x-center_width, center_x+center_width)
             ax.set_ylim(center_y-center_height, center_y+center_height)
+        '''
+    #----NEW_H-----
+    ax.set_xlim(minLong-8, maxLong+8)
+    ax.set_ylim(minLat-2, maxLat+2)
 
+    if idl == True:
+        gl = ax.gridlines(crs=ccrs.PlateCarree(), draw_labels=True, linewidth=0.5, color='gray', alpha=0.5, linestyle='--')
+        gl.xlocator = mticker.FixedLocator(range(-180, 181, 10))  # Control gridline spacing
+        gl.ylocator = mticker.FixedLocator(range(-90, 91, 10))
+        #gl.xformatter = LONGITUDE_FORMATTER
+        gl.yformatter = LATITUDE_FORMATTER
+        gl.xlabel_style = {'size': 8, 'color': 'k'}  # Customize label style
+        gl.ylabel_style = {'size': 8, 'color': 'k'}
+    
+    #------------
     #Defining the legend box for the plot...
     legend_elements = [
                     Line2D([0], [0], marker='^', color='w', label='Non-Tropical',markerfacecolor='#444764', markersize=10),
                     Line2D([0], [0], marker='s', color='w', label='Sub-Tropical',markerfacecolor='#444764', markersize=10),
-                    Line2D([0], [0], marker='o', color='w', label='Tropical Depression',markerfacecolor='b', markersize=10),
-                    Line2D([0], [0], marker='o', color='w', label='Tropical Storm',markerfacecolor='g', markersize=10),
-                    Line2D([0], [0], marker='o', color='w', label='Category 1',markerfacecolor='#ffff00', markersize=10),
-                    Line2D([0], [0], marker='o', color='w', label='Category 2',markerfacecolor='#ffa001', markersize=10),
-                    Line2D([0], [0], marker='o', color='w', label='Category 3',markerfacecolor='#ff5908', markersize=10),
-                    Line2D([0], [0], marker='o', color='w', label='Category 4',markerfacecolor='r', markersize=10),
-                    Line2D([0], [0], marker='o', color='w', label='Category 5',markerfacecolor='m', markersize=10),
     ]
+    # Define the color mapping for wind speeds
+    colors = ['b', 'g', '#ffff00', '#ffa001', '#ff5908', 'r', 'm']
+    bounds = [0, 34, 64, 81, 96, 112, 137, 200]
+    norm = mcolors.BoundaryNorm(bounds, len(colors))
+    labels = ['TD', 'TS', 'C1', 'C2', 'C3', 'C4', 'C5']
+    #------------
 
     #Building the function that calculates ACE...
     def calc_ACE(winds, timeCheck):
@@ -4689,6 +4752,19 @@ async def trackgen_atcf(ctx, url:str):
     plt.title(f'ACE: {calc_ACE(winds, timeCheck)}', loc='right')
     ax.legend(handles=legend_elements, loc='upper left')
     plt.grid(True)
+    #-----NEW-----------
+    # Create the colorbar
+    cmap = mcolors.ListedColormap(colors)
+    norm = mcolors.BoundaryNorm(bounds, cmap.N)
+    sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
+    sm.set_array([])
+    ax.legend(handles=legend_elements, loc='best')
+
+    # Add colorbar to the plot
+    cbar = plt.colorbar(sm, ticks=bounds, orientation='horizontal', pad=0.05, aspect=50, ax=ax, shrink=0.5)
+    cbar.set_label('SSHWS Windspeeds (Kts)')
+    cbar.ax.set_xticklabels(['0', '34', '64', '81', '96', '112', '137', '200'])
+    #---------------------
     plt.tight_layout()
     # Adjust spacing above and below the plot
     
