@@ -598,7 +598,7 @@ async def amsu(ctx, header:str):
         return soup.get_text()
     
     header = header.upper()
-    if header[-1] == 'S':
+    if header[-1] == 'S' or header[-1] == 'P':
         from datetime import datetime
         basinDate = datetime.now()
         basinmonth = basinDate.month
@@ -723,7 +723,7 @@ async def crw(ctx, day:int, month:int, year:int):
     day_f = str(day).zfill(2)
 
     #Opening the URL:
-    url = f"https://coralreefwatch.noaa.gov/data/5km/v3.1/image/daily/ssta/gif/{year}/coraltemp5km_ssta_{year}{month_f}{day_f}_large.gif?182939392919"
+    url = f"https://www.star.nesdis.noaa.gov/pub/socd/mecb/crw/data/5km/v3.1_op/image_browse/daily/ssta/png/{year}/ct5km_ssta_v3.1_global_{year}{month_f}{day_f}.png"
     response = requests.get(url)
 
     if response.status_code == 200:
@@ -1551,8 +1551,8 @@ async def tcsst_historical(ctx, centerY:float, centerX:float, date, offset=0):
         (15/40, "#0075ff"),
         (20/40, "#00edff"),
         (20/40, "#00ff00"),
-        (25/40, "#00a100"),
-        (25/40, "#dff200"),
+        (27/40, "#00a100"),
+        (27/40, "#dff200"),
         (30/40, "#d56900"),
         (30/40, "#dc5a00"),
         (35/40, "#730000"),
@@ -1613,9 +1613,15 @@ async def tcsst_historical(ctx, centerY:float, centerX:float, date, offset=0):
     
     dateArray = date.split('/')
     day, month, year = dateArray[0], dateArray[1], dateArray[2]
-    
+    int_day, int_month, int_year = int(dateArray[0]), int(dateArray[1]), int(dateArray[2])
+    given_date = datetime(int_year, int_month, int_day)
+    prelim_cutoff_date = given_date - timedelta(days=15)
+
      # Construct the modified URL using the extracted components
-    url = f"https://www.ncei.noaa.gov/data/sea-surface-temperature-optimum-interpolation/v2.1/access/avhrr/{year}{month}/oisst-avhrr-v02r01.{year}{month}{day}.nc"
+    if given_date.date() >= prelim_cutoff_date.date():
+        url = f"https://www.ncei.noaa.gov/data/sea-surface-temperature-optimum-interpolation/v2.1/access/avhrr/{year}{month}/oisst-avhrr-v02r01.{year}{month}{day}_preliminary.nc"
+    else:
+        url = f"https://www.ncei.noaa.gov/data/sea-surface-temperature-optimum-interpolation/v2.1/access/avhrr/{year}{month}/oisst-avhrr-v02r01.{year}{month}{day}.nc"
 
     # Download the netCDF file
     response = http.request('GET', url)
@@ -3376,11 +3382,12 @@ async def smap(ctx, btkID, nodeType:str):
     lat_max = storm_lat + 10
     lon_min = storm_lon - 10
     lon_max = storm_lon + 10
+    
 
     data_found = False
     retries = 0
 
-    while not data_found and retries < 1:
+    while not data_found and retries < 3:
         year, month, day = get_formatted_date(current_datetime)
         url = f'https://data.remss.com/smap/wind/L3/v01.0/daily/NRT/{year}/RSS_smap_wind_daily_{year}_{month}_{day}_NRT_v01.0.nc'
         destination = f'smap{year}{month}{day}.nc'
@@ -6198,4 +6205,4 @@ async def commandHelp(ctx):
     await ctx.send("For the full command list, consult the google document here:\n")
     await ctx.send(url)
 
-bot.run(AUTH_TOKEN)
+bot.run(AUTHENTICATION_TOKEN)
