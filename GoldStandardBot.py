@@ -268,9 +268,9 @@ async def btk(ctx, btkID:str, yr:str, plotter=''):
         btkID = _00x_to_xx00(btkID)
 
     if btkID[:2] in ['sh', 'wp', 'io']:
-        btkUrl = f'https://www.ssd.noaa.gov/PS/TROP/DATA/ATCF/JTWC/b{btkID}{yr}.dat'
+        btkUrl = f'https://ospo.noaa.gov/tropical-data/ATCF/JTWC/b{btkID}{yr}.dat'
     else:
-        btkUrl = f'https://www.ssd.noaa.gov/PS/TROP/DATA/ATCF/NHC/b{btkID}{yr}.dat'
+        btkUrl = f'https://ospo.noaa.gov/tropical-data/ATCF/NHC/b{btkID}{yr}.dat'
     await ctx.send(btkUrl)
     btk_data = fetch_url(btkUrl)
     parsed_data = parse_data(btk_data)
@@ -354,7 +354,7 @@ async def btk(ctx, btkID:str, yr:str, plotter=''):
 
         ax.add_feature(cfeature.COASTLINE, linewidth=0.5)
         ax.add_feature(cfeature.BORDERS, linewidth=0.5)
-        ax.add_feature(cfeature.LAND, facecolor='lightgray')
+        #ax.add_feature(cfeature.LAND, facecolor='lightgray')
         ax.add_feature(cfeature.OCEAN, facecolor='lightblue')
 
         ax.gridlines(draw_labels=True, linewidth=0.5, linestyle='--', color='gray')
@@ -1020,13 +1020,13 @@ async def tcpass(ctx, btkID: str):
     if btkID[:2] in ['sh', 'wp', 'io']:
         if btkID[:2] == 'sh':
             if basinmonth >= 7:
-                btkUrl = f'https://www.ssd.noaa.gov/PS/TROP/DATA/ATCF/JTWC/b{btkID}{basinYear+1}.dat'
+                btkUrl = f'https://ospo.noaa.gov/tropical-data/ATCF/JTWC/b{btkID}{basinYear+1}.dat'
             else:
-                btkUrl = f'https://www.ssd.noaa.gov/PS/TROP/DATA/ATCF/JTWC/b{btkID}{basinYear}.dat'
+                btkUrl = f'https://ospo.noaa.gov/tropical-data/ATCF/JTWC/b{btkID}{basinYear}.dat'
         else:
-            btkUrl = f'https://www.ssd.noaa.gov/PS/TROP/DATA/ATCF/JTWC/b{btkID}{basinYear}.dat'
+            btkUrl = f'https://ospo.noaa.gov/tropical-data/ATCF/JTWC/b{btkID}{basinYear}.dat'
     else:
-        btkUrl = f'https://www.ssd.noaa.gov/PS/TROP/DATA/ATCF/NHC/b{btkID}{basinYear}.dat'
+        btkUrl = f'https://ospo.noaa.gov/tropical-data/ATCF/NHC/b{btkID}{basinYear}.dat'
 
     btk_data = fetch_url(btkUrl)
     parsed_data = parse_data(btk_data)
@@ -1320,13 +1320,13 @@ async def tcsst(ctx, btkID: str):
     if btkID[:2] in ['sh', 'wp', 'io']:
         if btkID[:2] == 'sh':
             if basinmonth >= 7:
-                btkUrl = f'https://www.ssd.noaa.gov/PS/TROP/DATA/ATCF/JTWC/b{btkID}{basinYear+1}.dat'
+                btkUrl = f'https://ospo.noaa.gov/tropical-data/ATCF/JTWC/b{btkID}{basinYear+1}.dat'
             else:
-                btkUrl = f'https://www.ssd.noaa.gov/PS/TROP/DATA/ATCF/JTWC/b{btkID}{basinYear}.dat'
+                btkUrl = f'https://ospo.noaa.gov/tropical-data/ATCF/JTWC/b{btkID}{basinYear}.dat'
         else:
-            btkUrl = f'https://www.ssd.noaa.gov/PS/TROP/DATA/ATCF/JTWC/b{btkID}{basinYear}.dat'
+            btkUrl = f'https://ospo.noaa.gov/tropical-data/ATCF/JTWC/b{btkID}{basinYear}.dat'
     else:
-        btkUrl = f'https://www.ssd.noaa.gov/PS/TROP/DATA/ATCF/NHC/b{btkID}{basinYear}.dat'
+        btkUrl = f'https://ospo.noaa.gov/tropical-data/ATCF/NHC/b{btkID}{basinYear}.dat'
 
     btk_data = fetch_url(btkUrl)
     parsed_data = parse_data(btk_data)
@@ -3337,13 +3337,13 @@ async def smap(ctx, btkID, nodeType:str):
     if btkID[:2] in ['sh', 'wp', 'io']:
         if btkID[:2] == 'sh':
             if basinmonth >= 7:
-                btkUrl = f'https://www.ssd.noaa.gov/PS/TROP/DATA/ATCF/JTWC/b{btkID}{basinYear+1}.dat'
+                btkUrl = f'https://ospo.noaa.gov/tropical-data/ATCF/JTWC/b{btkID}{basinYear+1}.dat'
             else:
-                btkUrl = f'https://www.ssd.noaa.gov/PS/TROP/DATA/ATCF/JTWC/b{btkID}{basinYear}.dat'
+                btkUrl = f'https://ospo.noaa.gov/tropical-data/ATCF/JTWC/b{btkID}{basinYear}.dat'
         else:
-            btkUrl = f'https://www.ssd.noaa.gov/PS/TROP/DATA/ATCF/JTWC/b{btkID}{basinYear}.dat'
+            btkUrl = f'https://ospo.noaa.gov/tropical-data/ATCF/JTWC/b{btkID}{basinYear}.dat'
     else:
-        btkUrl = f'https://www.ssd.noaa.gov/PS/TROP/DATA/ATCF/NHC/b{btkID}{basinYear}.dat'
+        btkUrl = f'https://ospo.noaa.gov/tropical-data/ATCF/NHC/b{btkID}{basinYear}.dat'
 
     btk_data = fetch_url(btkUrl)
     parsed_data = parse_data(btk_data)
@@ -3915,9 +3915,9 @@ async def tcprofile_ssd(ctx, btkID:str, yr:str):
     await ctx.send("Please wait. Due to my terrible potato laptop, the image may take a while to generate.")
 
     if btkID[:2] in ['sh', 'wp', 'io']:
-        btkUrl = f'https://www.ssd.noaa.gov/PS/TROP/DATA/ATCF/JTWC/b{btkID}{yr}.dat'
+        btkUrl = f'https://ospo.noaa.gov/tropical-data/ATCF/JTWC/b{btkID}{yr}.dat'
     else:
-        btkUrl = f'https://www.ssd.noaa.gov/PS/TROP/DATA/ATCF/NHC/b{btkID}{yr}.dat'
+        btkUrl = f'https://ospo.noaa.gov/tropical-data/ATCF/NHC/b{btkID}{yr}.dat'
 
     btk_data = fetch_url(btkUrl)
     parsed_data = parse_data(btk_data)
@@ -5346,11 +5346,11 @@ async def mcfetch(ctx, satellite:str, band:str, latitude:float, longitude:float,
     await ctx.send("Please be patient as the image loads.")
 
     if mag1 == "" and mag2 == "" and zoom == "":
-        url = f"https://mcfetch.ssec.wisc.edu/cgi-bin/mcfetch?dkey=API_KEY&satellite={satellite}&band={band}&output=JPG&date={year}-{month}-{day}&time={time[:2]}:{time[2:]}&eu={eu}&lat={latitude}+{longitude}&map=YES&size=600+600&mag=-1+-2"
+        url = f"https://mcfetch.ssec.wisc.edu/cgi-bin/mcfetch?dkey=API_KEY4&satellite={satellite}&band={band}&output=JPG&date={year}-{month}-{day}&time={time[:2]}:{time[2:]}&eu={eu}&lat={latitude}+{longitude}&map=YES&size=600+600&mag=-1+-2"
     elif zoom == "":
-        url = f"https://mcfetch.ssec.wisc.edu/cgi-bin/mcfetch?dkey=API_KEY&satellite={satellite}&band={band}&output=JPG&date={year}-{month}-{day}&time={time[:2]}:{time[2:]}&eu={eu}&lat={latitude}+{longitude}&map=YES&size=600+600&mag={mag1}+{mag2}"
+        url = f"https://mcfetch.ssec.wisc.edu/cgi-bin/mcfetch?dkey=API_KEY4&satellite={satellite}&band={band}&output=JPG&date={year}-{month}-{day}&time={time[:2]}:{time[2:]}&eu={eu}&lat={latitude}+{longitude}&map=YES&size=600+600&mag={mag1}+{mag2}"
     else:
-        url = f"https://mcfetch.ssec.wisc.edu/cgi-bin/mcfetch?dkey=API_KEY&satellite={satellite}&band={band}&output=JPG&date={year}-{month}-{day}&time={time[:2]}:{time[2:]}&eu={eu}&lat={latitude}+{longitude}&map=YES&size={zoom}+{zoom}&mag={mag1}+{mag2}"
+        url = f"https://mcfetch.ssec.wisc.edu/cgi-bin/mcfetch?dkey=API_KEY4&satellite={satellite}&band={band}&output=JPG&date={year}-{month}-{day}&time={time[:2]}:{time[2:]}&eu={eu}&lat={latitude}+{longitude}&map=YES&size={zoom}+{zoom}&mag={mag1}+{mag2}"
     
     if satellite in ['GOES16', 'GOES17', 'GOES18', 'GOES19', 'HIMAWARI8', 'HIMAWARI9']:
         coverage = coverage.upper()
@@ -6205,4 +6205,4 @@ async def commandHelp(ctx):
     await ctx.send("For the full command list, consult the google document here:\n")
     await ctx.send(url)
 
-bot.run(AUTHENTICATION_TOKEN)
+bot.run(AUTHENTICATTION_TOKEN)
