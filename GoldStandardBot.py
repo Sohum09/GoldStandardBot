@@ -47,7 +47,7 @@ async def atcf(ctx, info=""):
 
     # Explicitly disable SSL verification
     http = urllib3.PoolManager(cert_reqs='CERT_NONE', assert_hostname=False)
-    
+
     # URL of the ATCF data
     atcf_url = 'https://science.nrlmry.navy.mil/geoips/tcdat/sectors/atcf_sector_file'
 
@@ -247,7 +247,8 @@ async def btk(ctx, btkID:str, yr:str, plotter=''):
     import matplotlib.colors as mcolors
 
     urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-    http = urllib3.PoolManager(cert_reqs='CERT_NONE', assert_hostname=False)
+    #http = urllib3.PoolManager(cert_reqs='CERT_NONE', assert_hostname=False)
+    http = urllib3.PoolManager(cert_reqs='CERT_NONE')
 
     def fetch_url(urlLink):
         response = http.request('GET', urlLink)
@@ -268,9 +269,9 @@ async def btk(ctx, btkID:str, yr:str, plotter=''):
         btkID = _00x_to_xx00(btkID)
 
     if btkID[:2] in ['sh', 'wp', 'io']:
-        btkUrl = f'https://ospo.noaa.gov/tropical-data/ATCF/JTWC/b{btkID}{yr}.dat'
+        btkUrl = f'http://99.105.212.93:8901/bdeck/{yr}/b{btkID}{yr}.dat'
     else:
-        btkUrl = f'https://ospo.noaa.gov/tropical-data/ATCF/NHC/b{btkID}{yr}.dat'
+        btkUrl = f'http://99.105.212.93:8901/bdeck/{yr}/b{btkID}{yr}.dat'
     await ctx.send(btkUrl)
     btk_data = fetch_url(btkUrl)
     parsed_data = parse_data(btk_data)
@@ -352,10 +353,13 @@ async def btk(ctx, btkID:str, yr:str, plotter=''):
         else:
             fig, ax = plt.subplots(subplot_kw={'projection': ccrs.PlateCarree()}, figsize=(12, 10))
 
-        ax.add_feature(cfeature.COASTLINE, linewidth=0.5)
-        ax.add_feature(cfeature.BORDERS, linewidth=0.5)
-        #ax.add_feature(cfeature.LAND, facecolor='lightgray')
-        ax.add_feature(cfeature.OCEAN, facecolor='lightblue')
+        from matplotlib import colors
+    
+        ax.add_feature(cfeature.COASTLINE, linewidth=1, color="c")
+        ax.add_feature(cfeature.BORDERS, color="w", linewidth=0.5)
+        ax.add_feature(cfeature.LAND, facecolor=colors.to_rgba("c", 0.25))
+        if idl == False:
+            ax.add_feature(cfeature.OCEAN, facecolor='#191919')
 
         ax.gridlines(draw_labels=True, linewidth=0.5, linestyle='--', color='gray')
         maxLat, minLat, maxLong, minLong = -999, 999, -999, 999
@@ -486,7 +490,7 @@ async def btk(ctx, btkID:str, yr:str, plotter=''):
             else:
                 LineX.append(float(cdx[i]))
             LineY.append(float(cdy[i]))
-        plt.plot(LineX, LineY, color="k", linestyle="-")
+        plt.plot(LineX, LineY, color="#808080", linestyle="-")
 
         #Applying final touches...
         plt.xlabel('Longitude')
@@ -533,6 +537,7 @@ async def ripa(ctx, btkID:str):
 
     urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
     http = urllib3.PoolManager(cert_reqs='CERT_NONE', assert_hostname=False)
+
 
     def fetch_url(urlLink):
         response = http.request('GET', urlLink)
@@ -1003,8 +1008,8 @@ async def tcpass(ctx, btkID: str):
         btkID = _00x_to_xx00(btkID)
     await ctx.send("Please wait. Due to API service times, the figure may take a few seconds to generate.")
     urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-    http = urllib3.PoolManager(cert_reqs='CERT_NONE', assert_hostname=False)
-
+    #http = urllib3.PoolManager(cert_reqs='CERT_NONE', assert_hostname=False)
+    http = urllib3.PoolManager(cert_reqs='CERT_NONE')
     def fetch_url(urlLink):
         response = http.request('GET', urlLink)
         return response.data.decode('utf-8')
@@ -1020,13 +1025,13 @@ async def tcpass(ctx, btkID: str):
     if btkID[:2] in ['sh', 'wp', 'io']:
         if btkID[:2] == 'sh':
             if basinmonth >= 7:
-                btkUrl = f'https://ospo.noaa.gov/tropical-data/ATCF/JTWC/b{btkID}{basinYear+1}.dat'
+                btkUrl = f'http://99.105.212.93:8901/bdeck/{basinYear+1}/b{btkID}{basinYear+1}.dat'
             else:
-                btkUrl = f'https://ospo.noaa.gov/tropical-data/ATCF/JTWC/b{btkID}{basinYear}.dat'
+                btkUrl = f'http://99.105.212.93:8901/bdeck/{basinYear}/b{btkID}{basinYear}.dat'
         else:
-            btkUrl = f'https://ospo.noaa.gov/tropical-data/ATCF/JTWC/b{btkID}{basinYear}.dat'
+            btkUrl = f'http://99.105.212.93:8901/bdeck/{basinYear}/b{btkID}{basinYear}.dat'
     else:
-        btkUrl = f'https://ospo.noaa.gov/tropical-data/ATCF/NHC/b{btkID}{basinYear}.dat'
+        btkUrl = f'http://99.105.212.93:8901/bdeck/{basinYear}/b{btkID}{basinYear}.dat'
 
     btk_data = fetch_url(btkUrl)
     parsed_data = parse_data(btk_data)
@@ -1234,8 +1239,8 @@ async def tcsst(ctx, btkID: str):
 
     await ctx.send("Please wait. Due to my terrible potato laptop, the image may take a while to generate.")
     urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-    http = urllib3.PoolManager(cert_reqs='CERT_NONE', assert_hostname=False)
-
+    #http = urllib3.PoolManager(cert_reqs='CERT_NONE', assert_hostname=False)
+    http = urllib3.PoolManager(cert_reqs='CERT_NONE')
     def fetch_url(urlLink):
         response = http.request('GET', urlLink)
         return response.data.decode('utf-8')
@@ -1320,13 +1325,13 @@ async def tcsst(ctx, btkID: str):
     if btkID[:2] in ['sh', 'wp', 'io']:
         if btkID[:2] == 'sh':
             if basinmonth >= 7:
-                btkUrl = f'https://ospo.noaa.gov/tropical-data/ATCF/JTWC/b{btkID}{basinYear+1}.dat'
+                btkUrl = f'http://99.105.212.93:8901/bdeck/{basinYear+1}/b{btkID}{basinYear+1}.dat'
             else:
-                btkUrl = f'https://ospo.noaa.gov/tropical-data/ATCF/JTWC/b{btkID}{basinYear}.dat'
+                btkUrl = f'http://99.105.212.93:8901/bdeck/{basinYear}/b{btkID}{basinYear}.dat'
         else:
-            btkUrl = f'https://ospo.noaa.gov/tropical-data/ATCF/JTWC/b{btkID}{basinYear}.dat'
+            btkUrl = f'http://99.105.212.93:8901/bdeck/{basinYear}/b{btkID}{basinYear}.dat'
     else:
-        btkUrl = f'https://ospo.noaa.gov/tropical-data/ATCF/NHC/b{btkID}{basinYear}.dat'
+        btkUrl = f'http://99.105.212.93:8901/bdeck/{basinYear}/b{btkID}{basinYear}.dat'
 
     btk_data = fetch_url(btkUrl)
     parsed_data = parse_data(btk_data)
@@ -2032,7 +2037,9 @@ async def ibtracs(ctx, btkID:str, yr:str):
     import matplotlib.colors as mcolors
     import matplotlib.ticker as mticker
     from cartopy.mpl.gridliner import LONGITUDE_FORMATTER, LATITUDE_FORMATTER
+    import matplotlib.style as mplstyle
 
+    mplstyle.use("dark_background") 
     print(f"Command received from server: {ctx.guild.name}")
     btkID = btkID.upper()
     if btkID == 'BENTO':
@@ -2042,7 +2049,7 @@ async def ibtracs(ctx, btkID:str, yr:str):
                   'JUDY 1989', 'LINDA 1997', 'MAX 1981', 'NINA 1992', 'NORMAN 2000', 'ODETTE 2021', 'PAUL 2000',
                   'ROSE 1965', 'RUTH 1980', 'SALLY 1971', 'SARAH 1983', 'SHARON 1994', 'TIM 1994', 'WANDA 1974',
                   'TOMAS 2010', 'VICKY 2020', 'JOYCE 2018', 'GORDON 1979', 'BENI 2003', 'MARK 1992', 'NADINE 1978',
-                  'WINNIE 1978', 'HARVEY 2005', 'FREDA 1981', 'POLLY 1970', 'LOUISE 1970', 'LUCY 1962', 'CARMEN 1974']
+                  'WINNIE 1978', 'HARVEY 2005', 'FREDA 1981', 'POLLY 1971', 'LOUISE 1970', 'LUCY 1962', 'CARMEN 1974']
     check = f"{btkID} {yr}"
     if check in duplicates:
         await ctx.send(f"Error: {check} is the name of multiple storms in this database. Consider using their ATCF IDs instead.")
@@ -2104,10 +2111,13 @@ async def ibtracs(ctx, btkID:str, yr:str):
     else:
         fig, ax = plt.subplots(subplot_kw={'projection': ccrs.PlateCarree()}, figsize=(12, 10))
 
-    ax.add_feature(cfeature.COASTLINE, linewidth=0.5)
-    ax.add_feature(cfeature.BORDERS, linewidth=0.5)
-    #ax.add_feature(cfeature.LAND, facecolor='lightgray')
-    ax.add_feature(cfeature.OCEAN, facecolor='lightblue')
+    from matplotlib import colors
+    
+    ax.add_feature(cfeature.COASTLINE, linewidth=1, color="c")
+    ax.add_feature(cfeature.BORDERS, color="w", linewidth=0.5)
+    ax.add_feature(cfeature.LAND, facecolor=colors.to_rgba("c", 0.25))
+    if idl == False:
+        ax.add_feature(cfeature.OCEAN, facecolor='#191919')
 
     if idl != True:
         ax.gridlines(draw_labels=True, linewidth=0.5, linestyle='--', color='gray')
@@ -2200,8 +2210,8 @@ async def ibtracs(ctx, btkID:str, yr:str):
         gl.ylocator = mticker.FixedLocator(range(-90, 91, 10))
         #gl.xformatter = LONGITUDE_FORMATTER
         gl.yformatter = LATITUDE_FORMATTER
-        gl.xlabel_style = {'size': 8, 'color': 'k'}  # Customize label style
-        gl.ylabel_style = {'size': 8, 'color': 'k'}
+        gl.xlabel_style = {'size': 8, 'color': 'w'}  # Customize label style
+        gl.ylabel_style = {'size': 8, 'color': 'w'}
     
     #------------
     #---MODDED---
@@ -2242,7 +2252,7 @@ async def ibtracs(ctx, btkID:str, yr:str):
             LineX.append(float(cdx[i]))
         LineY.append(float(cdy[i]))
 
-    plt.plot(LineX, LineY, color="k", linestyle="-")
+    plt.plot(LineX, LineY, color="w", linestyle="-")
     plt.text(LineX[0], LineY[0]+0.5, f'{DateTime[0]}')
     plt.text(LineX[len(LineX)-1], LineY[len(LineX)-1]+0.5, f'{DateTime[len(LineX)-1]}')
 
@@ -2617,10 +2627,13 @@ async def season(ctx, basin:str, yr:str):
     else:
         fig, ax = plt.subplots(subplot_kw={'projection': ccrs.PlateCarree()}, figsize=(12, 10))
 
-    ax.add_feature(cfeature.COASTLINE, linewidth=0.5)
-    ax.add_feature(cfeature.BORDERS, linewidth=0.5)
-    #ax.add_feature(cfeature.LAND, facecolor='lightgray')
-    #ax.add_feature(cfeature.OCEAN, facecolor='lightblue')
+    from matplotlib import colors
+    
+    ax.add_feature(cfeature.COASTLINE, linewidth=1, color="c")
+    ax.add_feature(cfeature.BORDERS, color="w", linewidth=0.5)
+    ax.add_feature(cfeature.LAND, facecolor=colors.to_rgba("c", 0.25))
+    if idl == False:
+        ax.add_feature(cfeature.OCEAN, facecolor='#191919')
     if idl != True:
         ax.gridlines(draw_labels=True, linewidth=0.5, linestyle='--', color='gray')
     maxLat, minLat, maxLong, minLong = -999, 999, -999, 999
@@ -2727,8 +2740,8 @@ async def season(ctx, basin:str, yr:str):
         gl.ylocator = mticker.FixedLocator(range(-90, 91, 10))
         #gl.xformatter = LONGITUDE_FORMATTER
         gl.yformatter = LATITUDE_FORMATTER
-        gl.xlabel_style = {'size': 8, 'color': 'k'}  # Customize label style
-        gl.ylabel_style = {'size': 8, 'color': 'k'}
+        gl.xlabel_style = {'size': 8, 'color': 'w'}  # Customize label style
+        gl.ylabel_style = {'size': 8, 'color': 'w'}
 
     legend_elements = [
                     Line2D([0], [0], marker='^', color='w', label='EX/LO/DB',markerfacecolor='#444764', markersize=10),
@@ -2849,10 +2862,13 @@ async def seasongen_atcf(ctx, url:str, basin=''):
     else:
         fig, ax = plt.subplots(subplot_kw={'projection': ccrs.PlateCarree()}, figsize=(12, 10))
 
-    ax.add_feature(cfeature.COASTLINE, linewidth=0.5)
-    ax.add_feature(cfeature.BORDERS, linewidth=0.5)
-    #ax.add_feature(cfeature.LAND, facecolor='lightgray')
-    ax.add_feature(cfeature.OCEAN, facecolor='lightblue')
+    from matplotlib import colors
+    
+    ax.add_feature(cfeature.COASTLINE, linewidth=1, color="c")
+    ax.add_feature(cfeature.BORDERS, color="w", linewidth=0.75)
+    ax.add_feature(cfeature.LAND, facecolor=colors.to_rgba("c", 0.25))
+    if idl == False:
+        ax.add_feature(cfeature.OCEAN, facecolor='#191919')
 
     if idl != True:
         ax.gridlines(draw_labels=True, linewidth=0.5, linestyle='--', color='gray')
@@ -2960,8 +2976,8 @@ async def seasongen_atcf(ctx, url:str, basin=''):
         gl.ylocator = mticker.FixedLocator(range(-90, 91, 10))
         #gl.xformatter = LONGITUDE_FORMATTER
         gl.yformatter = LATITUDE_FORMATTER
-        gl.xlabel_style = {'size': 8, 'color': 'k'}  # Customize label style
-        gl.ylabel_style = {'size': 8, 'color': 'k'}
+        gl.xlabel_style = {'size': 8, 'color': 'w'}  # Customize label style
+        gl.ylabel_style = {'size': 8, 'color': 'w'}
 
     legend_elements = [
                     Line2D([0], [0], marker='^', color='w', label='EX/LO/DB',markerfacecolor='#444764', markersize=10),
@@ -3112,10 +3128,13 @@ async def seasongen_hurdat(ctx, url:str, basin=''):
         fig, ax = plt.subplots(subplot_kw={'projection': ccrs.PlateCarree()}, figsize=(12, 10))
 
 
-    ax.add_feature(cfeature.COASTLINE, linewidth=0.5)
-    ax.add_feature(cfeature.BORDERS, linewidth=0.5)
-    #ax.add_feature(cfeature.LAND, facecolor='lightgray')
-    ax.add_feature(cfeature.OCEAN, facecolor='lightblue')
+    from matplotlib import colors
+    
+    ax.add_feature(cfeature.COASTLINE, linewidth=1, color="c")
+    ax.add_feature(cfeature.BORDERS, color="w", linewidth=0.75)
+    ax.add_feature(cfeature.LAND, facecolor=colors.to_rgba("c", 0.25))
+    if idl == False:
+        ax.add_feature(cfeature.OCEAN, facecolor='#191919')
 
     if idl != True:
         ax.gridlines(draw_labels=True, linewidth=0.5, linestyle='--', color='gray')
@@ -3226,8 +3245,8 @@ async def seasongen_hurdat(ctx, url:str, basin=''):
         gl.ylocator = mticker.FixedLocator(range(-90, 91, 10))
         #gl.xformatter = LONGITUDE_FORMATTER
         gl.yformatter = LATITUDE_FORMATTER
-        gl.xlabel_style = {'size': 8, 'color': 'k'}  # Customize label style
-        gl.ylabel_style = {'size': 8, 'color': 'k'}
+        gl.xlabel_style = {'size': 8, 'color': 'w'}  # Customize label style
+        gl.ylabel_style = {'size': 8, 'color': 'w'}
 
     legend_elements = [
                     Line2D([0], [0], marker='^', color='w', label='EX/LO/DB',markerfacecolor='#444764', markersize=10),
@@ -3309,8 +3328,8 @@ async def smap(ctx, btkID, nodeType:str):
 
     await ctx.send("Please hold as the data is generated.")
     urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-    http = urllib3.PoolManager(cert_reqs='CERT_NONE', assert_hostname=False)
-
+    #http = urllib3.PoolManager(cert_reqs='CERT_NONE', assert_hostname=False)
+    http = urllib3.PoolManager(cert_reqs='CERT_NONE')
     def fetch_url(urlLink):
         response = http.request('GET', urlLink)
         return response.data.decode('utf-8')
@@ -3337,13 +3356,13 @@ async def smap(ctx, btkID, nodeType:str):
     if btkID[:2] in ['sh', 'wp', 'io']:
         if btkID[:2] == 'sh':
             if basinmonth >= 7:
-                btkUrl = f'https://ospo.noaa.gov/tropical-data/ATCF/JTWC/b{btkID}{basinYear+1}.dat'
+                btkUrl = f'http://99.105.212.93:8901/bdeck/{basinYear+1}/b{btkID}{basinYear+1}.dat'
             else:
-                btkUrl = f'https://ospo.noaa.gov/tropical-data/ATCF/JTWC/b{btkID}{basinYear}.dat'
+                btkUrl = f'http://99.105.212.93:8901/bdeck/{basinYear}/b{btkID}{basinYear}.dat'
         else:
-            btkUrl = f'https://ospo.noaa.gov/tropical-data/ATCF/JTWC/b{btkID}{basinYear}.dat'
+            btkUrl = f'http://99.105.212.93:8901/bdeck/{basinYear}/b{btkID}{basinYear}.dat'
     else:
-        btkUrl = f'https://ospo.noaa.gov/tropical-data/ATCF/NHC/b{btkID}{basinYear}.dat'
+        btkUrl = f'http://99.105.212.93:8901/bdeck/{basinYear}/b{btkID}{basinYear}.dat'
 
     btk_data = fetch_url(btkUrl)
     parsed_data = parse_data(btk_data)
@@ -3902,8 +3921,8 @@ async def tcprofile_ssd(ctx, btkID:str, yr:str):
     import os
 
     urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-    http = urllib3.PoolManager(cert_reqs='CERT_NONE', assert_hostname=False)
-
+    #http = urllib3.PoolManager(cert_reqs='CERT_NONE', assert_hostname=False)
+    http = urllib3.PoolManager(cert_reqs='CERT_NONE')
     def fetch_url(urlLink):
         response = http.request('GET', urlLink)
         return response.data.decode('utf-8')
@@ -3915,9 +3934,9 @@ async def tcprofile_ssd(ctx, btkID:str, yr:str):
     await ctx.send("Please wait. Due to my terrible potato laptop, the image may take a while to generate.")
 
     if btkID[:2] in ['sh', 'wp', 'io']:
-        btkUrl = f'https://ospo.noaa.gov/tropical-data/ATCF/JTWC/b{btkID}{yr}.dat'
+        btkUrl = f'http://99.105.212.93:8901/bdeck/{yr}/b{btkID}{yr}.dat'
     else:
-        btkUrl = f'https://ospo.noaa.gov/tropical-data/ATCF/NHC/b{btkID}{yr}.dat'
+        btkUrl = f'http://99.105.212.93:8901/bdeck/{yr}/b{btkID}{yr}.dat'
 
     btk_data = fetch_url(btkUrl)
     parsed_data = parse_data(btk_data)
@@ -4380,10 +4399,13 @@ async def trackgen_hurdat(ctx, url:str):
     else:
         fig, ax = plt.subplots(subplot_kw={'projection': ccrs.PlateCarree()}, figsize=(12, 10))
 
-    ax.add_feature(cfeature.COASTLINE, linewidth=0.5)
-    ax.add_feature(cfeature.BORDERS, linewidth=0.5)
-    #ax.add_feature(cfeature.LAND, facecolor='lightgray')
-    ax.add_feature(cfeature.OCEAN, facecolor='lightblue')
+    from matplotlib import colors
+    
+    ax.add_feature(cfeature.COASTLINE, linewidth=1, color="c")
+    ax.add_feature(cfeature.BORDERS, color="w", linewidth=0.75)
+    ax.add_feature(cfeature.LAND, facecolor=colors.to_rgba("c", 0.25))
+    if idl == False:
+        ax.add_feature(cfeature.OCEAN, facecolor='#191919')
 
     if idl != True:
         ax.gridlines(draw_labels=True, linewidth=0.5, linestyle='--', color='gray')
@@ -4473,8 +4495,8 @@ async def trackgen_hurdat(ctx, url:str):
         gl.ylocator = mticker.FixedLocator(range(-90, 91, 10))
         #gl.xformatter = LONGITUDE_FORMATTER
         gl.yformatter = LATITUDE_FORMATTER
-        gl.xlabel_style = {'size': 8, 'color': 'k'}  # Customize label style
-        gl.ylabel_style = {'size': 8, 'color': 'k'}
+        gl.xlabel_style = {'size': 8, 'color': 'w'}  # Customize label style
+        gl.ylabel_style = {'size': 8, 'color': 'w'}
     
     #------------
     #Defining the legend box for the plot...
@@ -4513,7 +4535,7 @@ async def trackgen_hurdat(ctx, url:str):
             LineX.append(float(cdx[i]))
         LineY.append(float(cdy[i]))
 
-    plt.plot(LineX, LineY, color="k", linestyle="-")
+    plt.plot(LineX, LineY, color="#808080", linestyle="-")
 
     #Applying final touches...
     plt.xlabel('Longitude')
@@ -4616,10 +4638,13 @@ async def trackgen_atcf(ctx, url:str):
     else:
         fig, ax = plt.subplots(subplot_kw={'projection': ccrs.PlateCarree()}, figsize=(12, 10))
 
-    ax.add_feature(cfeature.COASTLINE, linewidth=0.5)
-    ax.add_feature(cfeature.BORDERS, linewidth=0.5)
-    #ax.add_feature(cfeature.LAND, facecolor='lightgray')
-    ax.add_feature(cfeature.OCEAN, facecolor='lightblue')
+    from matplotlib import colors
+    
+    ax.add_feature(cfeature.COASTLINE, linewidth=1, color="c")
+    ax.add_feature(cfeature.BORDERS, color="w", linewidth=0.75)
+    ax.add_feature(cfeature.LAND, facecolor=colors.to_rgba("c", 0.25))
+    if idl == False:
+        ax.add_feature(cfeature.OCEAN, facecolor='#191919') 
 
     if idl != True:
         ax.gridlines(draw_labels=True, linewidth=0.5, linestyle='--', color='gray')
@@ -4709,8 +4734,8 @@ async def trackgen_atcf(ctx, url:str):
         gl.ylocator = mticker.FixedLocator(range(-90, 91, 10))
         #gl.xformatter = LONGITUDE_FORMATTER
         gl.yformatter = LATITUDE_FORMATTER
-        gl.xlabel_style = {'size': 8, 'color': 'k'}  # Customize label style
-        gl.ylabel_style = {'size': 8, 'color': 'k'}
+        gl.xlabel_style = {'size': 8, 'color': 'w'}  # Customize label style
+        gl.ylabel_style = {'size': 8, 'color': 'w'}
     
     #------------
     #Defining the legend box for the plot...
@@ -4750,7 +4775,7 @@ async def trackgen_atcf(ctx, url:str):
             LineX.append(float(cdx[i]))
         LineY.append(float(cdy[i]))
 
-    plt.plot(LineX, LineY, color="k", linestyle="-")
+    plt.plot(LineX, LineY, color="#808080", linestyle="-")
 
     #Applying final touches...
     plt.xlabel('Longitude')
@@ -5346,11 +5371,11 @@ async def mcfetch(ctx, satellite:str, band:str, latitude:float, longitude:float,
     await ctx.send("Please be patient as the image loads.")
 
     if mag1 == "" and mag2 == "" and zoom == "":
-        url = f"https://mcfetch.ssec.wisc.edu/cgi-bin/mcfetch?dkey=API_KEY4&satellite={satellite}&band={band}&output=JPG&date={year}-{month}-{day}&time={time[:2]}:{time[2:]}&eu={eu}&lat={latitude}+{longitude}&map=YES&size=600+600&mag=-1+-2"
+        url = f"https://mcfetch.ssec.wisc.edu/cgi-bin/mcfetch?dkey=API_KEY&satellite={satellite}&band={band}&output=JPG&date={year}-{month}-{day}&time={time[:2]}:{time[2:]}&eu={eu}&lat={latitude}+{longitude}&map=YES&size=600+600&mag=-1+-2"
     elif zoom == "":
-        url = f"https://mcfetch.ssec.wisc.edu/cgi-bin/mcfetch?dkey=API_KEY4&satellite={satellite}&band={band}&output=JPG&date={year}-{month}-{day}&time={time[:2]}:{time[2:]}&eu={eu}&lat={latitude}+{longitude}&map=YES&size=600+600&mag={mag1}+{mag2}"
+        url = f"https://mcfetch.ssec.wisc.edu/cgi-bin/mcfetch?dkey=API_KEY&satellite={satellite}&band={band}&output=JPG&date={year}-{month}-{day}&time={time[:2]}:{time[2:]}&eu={eu}&lat={latitude}+{longitude}&map=YES&size=600+600&mag={mag1}+{mag2}"
     else:
-        url = f"https://mcfetch.ssec.wisc.edu/cgi-bin/mcfetch?dkey=API_KEY4&satellite={satellite}&band={band}&output=JPG&date={year}-{month}-{day}&time={time[:2]}:{time[2:]}&eu={eu}&lat={latitude}+{longitude}&map=YES&size={zoom}+{zoom}&mag={mag1}+{mag2}"
+        url = f"https://mcfetch.ssec.wisc.edu/cgi-bin/mcfetch?dkey=API_KEY&satellite={satellite}&band={band}&output=JPG&date={year}-{month}-{day}&time={time[:2]}:{time[2:]}&eu={eu}&lat={latitude}+{longitude}&map=YES&size={zoom}+{zoom}&mag={mag1}+{mag2}"
     
     if satellite in ['GOES16', 'GOES17', 'GOES18', 'GOES19', 'HIMAWARI8', 'HIMAWARI9']:
         coverage = coverage.upper()
@@ -5514,7 +5539,492 @@ async def weatherunion(ctx, stn_id:str):
         await ctx.send(result)
     else:
         await ctx.send(f"Error: {response.status_code} - {response.reason}")
+
+
+@bot.command(name='hodoplot')
+async def hodoplot(ctx, btkID:str, yr:str, hour:int, day:int, month:int, year:int):
+    import matplotlib.style as mplstyle
+    import csv
+    import cdsapi
+    import xarray as xr
+    import numpy as np
+    import matplotlib.pyplot as plt
+    from metpy.calc import wind_speed
+    from metpy.plots import Hodograph
+    from metpy.units import units
+    import metpy.calc as mpcalc
+    import matplotlib.cm as cm
+    import matplotlib.colors as mcolors
+    import matplotlib.style as mplstyle
+    import os
+    from mpl_toolkits.axes_grid1 import make_axes_locatable
+    mplstyle.use("dark_background") 
+
+    print(f"Command received from server: {ctx.guild.name}")
+    btkID = btkID.upper()
+    if btkID == 'BENTO':
+        btkID = 'BENTOJANA'
+    duplicates = ['ALICE 1953', 'ALICE 1954', 'ANA 2021', 'BABE 1977', 'BETTY 1966', 'BETTY 1972', 'BETTY 1975',
+                  'DOREEN 1965', 'EDITH 1967', 'ELLEN 1973', 'FABIAN 1985', 'IDA 1972', 'IRMA 1978', 'IVY 1994',
+                  'JUDY 1989', 'LINDA 1997', 'MAX 1981', 'NINA 1992', 'NORMAN 2000', 'ODETTE 2021', 'PAUL 2000',
+                  'ROSE 1965', 'RUTH 1980', 'SALLY 1971', 'SARAH 1983', 'SHARON 1994', 'TIM 1994', 'WANDA 1974',
+                  'TOMAS 2010', 'VICKY 2020', 'JOYCE 2018', 'GORDON 1979', 'BENI 2003', 'MARK 1992', 'NADINE 1978',
+                  'WINNIE 1978', 'HARVEY 2005', 'FREDA 1981', 'POLLY 1971', 'LOUISE 1970', 'LUCY 1962', 'CARMEN 1974']
+    check = f"{btkID} {yr}"
+    if check in duplicates:
+        await ctx.send(f"Error: {check} is the name of multiple storms in this database. Consider using their ATCF IDs instead.")
+        return
+    if(btkID == 'NOT_NAMED'):
+        await ctx.send("Due to the IBTRACS database being ambiguous with this name, it cannot be used.")
+        return
+    if(btkID == 'UNNAMED'):
+        await ctx.send("Due to the IBTRACS database being ambiguous with this name, it cannot be used.")
+        return
+    
+    def _00x_to_xx00(des):
+        convert_map = {"L": "AL", "E": "EP", "C": "CP", "W":"WP", "A":"IO", "B":"IO", "S":"SH", "P":"SH"}
+        return convert_map[des[-1]] + des[:-1]
+
+    import re
+    if re.match(r"^\d{2}[A-Z]$", btkID):    
+        btkID = _00x_to_xx00(btkID)
+
+    #Load in the loops for finding the latitude and longitude...
+    IBTRACS_ID = f"{btkID}{yr}"
+    cdx, cdy, DateTime = 0, 0, ""
+    storm_name = ""
+    s_ID = ""
+    idl = False
+    await ctx.send("Please wait. Due to my terrible potato laptop, the dataset may take a while to go through.")
+    #Template to read the IBTRACS Data...
+    with open('ibtracs.ALL.list.v04r01.csv', mode='r') as file:
+        csvFile = csv.reader(file)
+        for line_num, lines in enumerate(csvFile, start=1):
+            if line_num > 3:
+                #Process or print the lines from the 4th line onwards
+                #If IBTRACS ID matches the ID on the script...
+                if lines[18] == IBTRACS_ID or (btkID == lines[5] and yr == lines[6][:4]):
+                    DateTime = lines[6]
+                    if int(DateTime[:4]) == year and int(DateTime[5:7]) == month and int(DateTime[8:10]) == day and int(DateTime[-8:-6]) == hour:
+                        cdy, cdx = float(lines[19]), float(lines[20])
+                        storm_name = lines[5]
+                        break
+    
+    if cdx == 0:
+        await ctx.send("Error 404: Storm not found. Please check if your entry is correct.")
+        return
+
+    await ctx.send("System located in database, generating API request...")
+
+    lat, lon = cdy, cdx
+    # === 1. Retrieve ERA5 Wind Data === #
+    def retrieve_era5_hodograph(year, month, day, hour, lat_north, lon_west, lat_south, lon_east):
+        client = cdsapi.Client()
         
+        dataset = "reanalysis-era5-pressure-levels"
+        request = {
+            "product_type": "reanalysis",
+            "variable": ["u_component_of_wind", "v_component_of_wind"],
+            "pressure_level": ["1000", "950", "900", "850", "800", "750", "700", "650", "600", "550", "500", "450", "400", "350", "300" ,"250", "200", "150", "100"],  
+            "year": str(year),
+            "month": str(month).zfill(2),
+            "day": str(day).zfill(2),
+            "time": f"{hour}:00",
+            "format": "netcdf",
+            "area": [lat_north, lon_west, lat_south, lon_east],  # North, West, South, East
+        }
+        
+        filename = "ERA5_hodograph.nc"
+        client.retrieve(dataset, request, filename)
+        return filename
+
+    lat_north, lon_west, lat_south, lon_east = lat+2.5, lon-2.5, lat-2.5, lon+2.5  # Define 5×5 grid
+    nc_file = retrieve_era5_hodograph(year, month, day, hour, lat_north, lon_west, lat_south, lon_east)
+    await ctx.send("API Request to CDS successful, plotting values...")
+    ds = xr.open_dataset(nc_file)
+    
+    # Debug: Print dataset info
+    #print(ds)
+
+    # Assign units using Pint accessor
+    ds = ds.metpy.quantify()
+
+    # Ensure wind components have correct units
+    ds["u"] = ds["u"].metpy.convert_units("knots")
+    ds["v"] = ds["v"].metpy.convert_units("knots")
+
+    # Compute mean wind components
+    u_wind = ds["u"].mean(dim=["latitude", "longitude"])
+    v_wind = ds["v"].mean(dim=["latitude", "longitude"])
+
+    # Extract pressure levels
+    pressure_levels = ds["pressure_level"].metpy.convert_units("hPa")
+
+    # === Create Hodograph Plot === #
+    fig, ax = plt.subplots(figsize=(10, 10))
+    date = f"{str(day).zfill(2)}/{str(month).zfill(2)}/{str(year)} at {str(hour).zfill(2)}00 UTC"
+    ax.set_title(f"ECMWF ERAv5 plotted Hodograph for {btkID} {yr}\n{date}, 5x5° Area-Averaged Grid with calculated shear vectors", fontsize=7, fontweight="bold")
+
+    # Hodograph setup
+    max_wind = max(
+    abs(u_wind.metpy.convert_units("knots").values.max()),
+    abs(v_wind.metpy.convert_units("knots").values.max()),
+    abs(u_wind.metpy.convert_units("knots").values.min()),
+    abs(v_wind.metpy.convert_units("knots").values.min())
+    )
+    hodo = Hodograph(ax, component_range=max_wind + 5)
+    hodo.add_grid(increment=10)  
+
+    # Plotting wind data
+    hodo.plot(u_wind, v_wind, marker="o", markersize=1, linestyle="-", color="b", label="Wind Profile")
+
+    # Colormap based on pressure levels
+    cmap = cm.get_cmap("Spectral_r")
+    norm = mcolors.Normalize(vmin=pressure_levels.min(), vmax=pressure_levels.max())
+
+    # Plotting wind data with colored lines and black points
+    for i in range(len(pressure_levels) - 1):
+        u1, v1 = u_wind.isel(pressure_level=i).values.item(), v_wind.isel(pressure_level=i).values.item()
+        u2, v2 = u_wind.isel(pressure_level=i+1).values.item(), v_wind.isel(pressure_level=i+1).values.item()
+        
+        # Colored line segment
+        ax.plot([u1, u2], [v1, v2], color=cmap(norm(pressure_levels[i].values)), linewidth=2)
+
+    for i, level in enumerate(ds["pressure_level"].values):
+        if level in [850, 700, 500, 350, 200]:  # Relevant pressure values
+            u_value = u_wind.isel(pressure_level=i).values.item()
+            v_value = v_wind.isel(pressure_level=i).values.item()
+            
+            ax.scatter(u_value, v_value, s=30, edgecolor="white", linewidth=0.7, zorder=10000)
+            ax.text(
+                u_value,
+                v_value,
+                f"{level:.0f} hPa",
+                fontsize=10,
+                ha="center"
+            )
+
+    # Create a divider for the axis to position the colorbar
+    divider = make_axes_locatable(ax)
+    cax = divider.append_axes("right", size="5%", pad=0.1)  # Adjust size and padding
+
+    # Add colorbar 
+    sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
+    sm.set_array([])
+    cbar = plt.colorbar(sm, cax=cax, orientation="vertical", label="Pressure Level (hPa)")
+    ax.set_xlabel("U-wind (knots)", fontsize=12)
+    ax.set_ylabel("V-wind (knots)", fontsize=12)
+
+    # === Compute and Plot Shear Vectors === #
+    shear_layers = {
+        "200–850 hPa": (200, 850),
+        "500–850 hPa": (500, 850),
+        "200–500 hPa": (200, 500),
+        "300–800 hPa": (300, 800),
+        "850–1000 hPa": (850, 1000),
+    }
+
+    import matplotlib.patches as mpatches
+    from matplotlib.patches import FancyArrowPatch
+    from matplotlib.legend_handler import HandlerPatch
+    from matplotlib.lines import Line2D
+    max_shear = []
+    class HandlerArrow(HandlerPatch):
+        def create_artists(self, legend, orig_handle, xdescent, ydescent, width, height, fontsize, trans):
+            # Calculate the center of the arrow
+            center = height / 2.0
+
+            # Use a valid color (e.g., white) explicitly
+            color = "white"
+
+            # Create the FancyArrowPatch for the legend
+            p = FancyArrowPatch(
+                (xdescent + width * 0.2, center),  # Start point
+                (xdescent + width * 0.8, center),  # End point
+                mutation_scale=15,  # Scale of arrow
+                color=color,         # Explicitly set valid color
+                arrowstyle="->"      # Define arrow style explicitly
+            )
+            p.set_transform(trans)
+            return [p]
+
+
+    legend_elements = []
+
+    arrow_length_display = 10  # fixed visual arrow length
+    arrow_color = "white"
+
+    for label, (lower, upper) in shear_layers.items():
+        u_lower = u_wind.sel(pressure_level=lower).values.item()
+        v_lower = v_wind.sel(pressure_level=lower).values.item()
+        u_upper = u_wind.sel(pressure_level=upper).values.item()
+        v_upper = v_wind.sel(pressure_level=upper).values.item()
+
+        shear_u = u_upper - u_lower
+        shear_v = v_upper - v_lower
+        shear_mag = np.sqrt(shear_u**2 + shear_v**2)
+        max_shear.append(shear_mag)
+        ax.quiver(
+        u_lower, v_lower,    # Starting point (lower pressure level)
+        shear_u, shear_v,    # Components (direction and magnitude)
+        angles="xy", scale_units="xy", scale=1, color="#808080", width=0.002, linestyle="--"
+        )
+
+        # Normalize for fixed arrow direction
+        unit_u = shear_u / shear_mag
+        unit_v = shear_v / shear_mag
+
+        scaled_u = unit_u * arrow_length_display
+        scaled_v = unit_v * arrow_length_display
+
+        # Create a custom arrow legend handle
+        arrow = FancyArrowPatch(
+            (0, 0), (shear_u, shear_v),  # unit direction
+            color="white",
+            arrowstyle='->',
+            mutation_scale=15,
+            lw=2
+        )
+        legend_elements.append(
+            (arrow, f"{label}: {shear_mag:.1f} kt")
+        )
+    legend_elements.append(
+            (arrow, f"Max shear: {max(max_shear):.1f} kt")
+        )
+    # Unpack handles and labels
+    handles, labels = zip(*legend_elements)
+    ax.legend(
+        handles, labels,
+        loc="lower center",
+        fontsize=8,
+        frameon=True,
+        ncol=2,
+        handler_map={FancyArrowPatch: HandlerArrow()}
+    )
+
+    image_path = f'Hodograph.png'
+    plt.savefig(image_path, format='png', bbox_inches='tight')
+    plt.close()
+
+    with open(image_path, 'rb') as image_file:
+        image = discord.File(image_file)
+        await ctx.send(file=image)
+    os.remove(image_path)
+
+
+@bot.command(name='hodoplot_custom')
+async def hodoplot_custom(ctx, lat:float, lon:float, hour, day, month, year):
+    import cdsapi
+    import xarray as xr
+    import numpy as np
+    import matplotlib.pyplot as plt
+    from metpy.calc import wind_speed
+    from metpy.plots import Hodograph
+    from metpy.units import units
+    import metpy.calc as mpcalc
+    import matplotlib.cm as cm
+    import matplotlib.colors as mcolors
+    import matplotlib.style as mplstyle
+    import os
+    from mpl_toolkits.axes_grid1 import make_axes_locatable
+
+    mplstyle.use("dark_background") 
+    await ctx.send("Please be patient as the required data is plotted.")
+
+    # === 1. Retrieve ERA5 Wind Data === #
+    def retrieve_era5_hodograph(year, month, day, hour, lat_north, lon_west, lat_south, lon_east):
+        client = cdsapi.Client()
+        
+        dataset = "reanalysis-era5-pressure-levels"
+        request = {
+            "product_type": "reanalysis",
+            "variable": ["u_component_of_wind", "v_component_of_wind"],
+            "pressure_level": ["1000", "950", "900", "850", "800", "750", "700", "650", "600", "550", "500", "450", "400", "350", "300" ,"250", "200", "150", "100"],  
+            "year": str(year),
+            "month": str(month).zfill(2),
+            "day": str(day).zfill(2),
+            "time": f"{hour}:00",
+            "format": "netcdf",
+            "area": [lat_north, lon_west, lat_south, lon_east],  # North, West, South, East
+        }
+        
+        filename = "ERA5_hodograph.nc"
+        client.retrieve(dataset, request, filename)
+        return filename
+
+    lat_north, lon_west, lat_south, lon_east = lat+2.5, lon-2.5, lat-2.5, lon+2.5  # Define 5×5 grid
+    nc_file = retrieve_era5_hodograph(year, month, day, hour, lat_north, lon_west, lat_south, lon_east)
+    await ctx.send("API Request to CDS successful, plotting values...")
+    ds = xr.open_dataset(nc_file)
+    
+    # Debug: Print dataset info
+    #print(ds)
+
+    # Assign units using Pint accessor
+    ds = ds.metpy.quantify()
+
+    # Ensure wind components have correct units
+    ds["u"] = ds["u"].metpy.convert_units("knots")
+    ds["v"] = ds["v"].metpy.convert_units("knots")
+
+    # Compute mean wind components
+    u_wind = ds["u"].mean(dim=["latitude", "longitude"])
+    v_wind = ds["v"].mean(dim=["latitude", "longitude"])
+
+    # Extract pressure levels
+    pressure_levels = ds["pressure_level"].metpy.convert_units("hPa")
+
+    # === Create Hodograph Plot === #
+    fig, ax = plt.subplots(figsize=(10, 10))
+    date = f"{str(day).zfill(2)}/{str(month).zfill(2)}/{str(year)} at {str(hour).zfill(2)}00 UTC"
+    ax.set_title(f"ECMWF ERAv5 plotted Hodograph centered over ({lat}, {lon})\n{date}, 5x5° Area-Averaged Grid with calculated shear vectors", fontsize=7, fontweight="bold")
+
+    # Hodograph setup
+    max_wind = max(
+    abs(u_wind.metpy.convert_units("knots").values.max()),
+    abs(v_wind.metpy.convert_units("knots").values.max()),
+    abs(u_wind.metpy.convert_units("knots").values.min()),
+    abs(v_wind.metpy.convert_units("knots").values.min())
+    )
+    hodo = Hodograph(ax, component_range=max_wind + 5)
+    hodo.add_grid(increment=10)  
+
+    # Plotting wind data
+    hodo.plot(u_wind, v_wind, marker="o", markersize=1, linestyle="-", color="b", label="Wind Profile")
+
+    # Colormap based on pressure levels
+    cmap = cm.get_cmap("Spectral_r")
+    norm = mcolors.Normalize(vmin=pressure_levels.min(), vmax=pressure_levels.max())
+
+    # Plotting wind data with colored lines and black points
+    for i in range(len(pressure_levels) - 1):
+        u1, v1 = u_wind.isel(pressure_level=i).values.item(), v_wind.isel(pressure_level=i).values.item()
+        u2, v2 = u_wind.isel(pressure_level=i+1).values.item(), v_wind.isel(pressure_level=i+1).values.item()
+        
+        # Colored line segment
+        ax.plot([u1, u2], [v1, v2], color=cmap(norm(pressure_levels[i].values)), linewidth=2)
+
+    for i, level in enumerate(ds["pressure_level"].values):
+        if level in [850, 700, 500, 350, 200]:  # Relevant pressure values
+            u_value = u_wind.isel(pressure_level=i).values.item()
+            v_value = v_wind.isel(pressure_level=i).values.item()
+            
+            ax.scatter(u_value, v_value, s=30, edgecolor="white", linewidth=0.7, zorder=10000)
+            ax.text(
+                u_value,
+                v_value,
+                f"{level:.0f} hPa",
+                fontsize=10,
+                ha="center"
+            )
+
+    # Create a divider for the axis to position the colorbar
+    divider = make_axes_locatable(ax)
+    cax = divider.append_axes("right", size="5%", pad=0.1)  # Adjust size and padding
+
+    # Add colorbar 
+    sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
+    sm.set_array([])
+    cbar = plt.colorbar(sm, cax=cax, orientation="vertical", label="Pressure Level (hPa)")
+    ax.set_xlabel("U-wind (knots)", fontsize=12)
+    ax.set_ylabel("V-wind (knots)", fontsize=12)
+
+    # === Compute and Plot Shear Vectors === #
+    shear_layers = {
+        "200–850 hPa": (200, 850),
+        "500–850 hPa": (500, 850),
+        "200–500 hPa": (200, 500),
+        "300–800 hPa": (300, 800),
+        "850–1000 hPa": (850, 1000),
+    }
+
+    import matplotlib.patches as mpatches
+    from matplotlib.patches import FancyArrowPatch
+    from matplotlib.legend_handler import HandlerPatch
+    from matplotlib.lines import Line2D
+    max_shear = []
+    class HandlerArrow(HandlerPatch):
+        def create_artists(self, legend, orig_handle, xdescent, ydescent, width, height, fontsize, trans):
+            # Calculate the center of the arrow
+            center = height / 2.0
+
+            # Use a valid color (e.g., white) explicitly
+            color = "white"
+
+            # Create the FancyArrowPatch for the legend
+            p = FancyArrowPatch(
+                (xdescent + width * 0.2, center),  # Start point
+                (xdescent + width * 0.8, center),  # End point
+                mutation_scale=15,  # Scale of arrow
+                color=color,         # Explicitly set valid color
+                arrowstyle="->"      # Define arrow style explicitly
+            )
+            p.set_transform(trans)
+            return [p]
+
+
+    legend_elements = []
+
+    arrow_length_display = 10  # fixed visual arrow length
+    arrow_color = "white"
+
+    for label, (lower, upper) in shear_layers.items():
+        u_lower = u_wind.sel(pressure_level=lower).values.item()
+        v_lower = v_wind.sel(pressure_level=lower).values.item()
+        u_upper = u_wind.sel(pressure_level=upper).values.item()
+        v_upper = v_wind.sel(pressure_level=upper).values.item()
+
+        shear_u = u_upper - u_lower
+        shear_v = v_upper - v_lower
+        shear_mag = np.sqrt(shear_u**2 + shear_v**2)
+        max_shear.append(shear_mag)
+        ax.quiver(
+        u_lower, v_lower,    # Starting point (lower pressure level)
+        shear_u, shear_v,    # Components (direction and magnitude)
+        angles="xy", scale_units="xy", scale=1, color="#808080", width=0.002, linestyle="--"
+        )
+
+        # Normalize for fixed arrow direction
+        unit_u = shear_u / shear_mag
+        unit_v = shear_v / shear_mag
+
+        scaled_u = unit_u * arrow_length_display
+        scaled_v = unit_v * arrow_length_display
+
+        # Create a custom arrow legend handle
+        arrow = FancyArrowPatch(
+            (0, 0), (shear_u, shear_v),  # unit direction
+            color="white",
+            arrowstyle='->',
+            mutation_scale=15,
+            lw=2
+        )
+        legend_elements.append(
+            (arrow, f"{label}: {shear_mag:.1f} kt")
+        )
+    legend_elements.append(
+            (arrow, f"Max shear: {max(max_shear):.1f} kt")
+        )
+    # Unpack handles and labels
+    handles, labels = zip(*legend_elements)
+    ax.legend(
+        handles, labels,
+        loc="lower center",
+        fontsize=8,
+        frameon=True,
+        ncol=2,
+        handler_map={FancyArrowPatch: HandlerArrow()}
+    )
+
+    image_path = f'Hodograph.png'
+    plt.savefig(image_path, format='png', bbox_inches='tight')
+    plt.close()
+
+    with open(image_path, 'rb') as image_file:
+        image = discord.File(image_file)
+        await ctx.send(file=image)
+    os.remove(image_path)
+
 @bot.command(name='windplot')
 async def windplot(ctx, pres:str, hour:str, day:str, month:str, year:str, areaN=90, areaS=-90, areaW=-180, areaE=180, color='jet'):
     import cdsapi
@@ -5544,7 +6054,7 @@ async def windplot(ctx, pres:str, hour:str, day:str, month:str, year:str, areaN=
 
     client = cdsapi.Client()
     client.retrieve(dataset, request).download('download.grib')
-
+    await ctx.send("API Request to CDS successful, plotting values...")
     # Step 2: Read and process the GRIB data
     ds = cfgrib.open_dataset('download.grib')
     u850_data = ds['u'].values
@@ -6205,4 +6715,4 @@ async def commandHelp(ctx):
     await ctx.send("For the full command list, consult the google document here:\n")
     await ctx.send(url)
 
-bot.run(AUTHENTICATTION_TOKEN)
+bot.run(AUTH_TOKEN)
