@@ -899,12 +899,13 @@ async def tcpass_custom(ctx, latitude:float, longitude:float, width=4):
             math.sin(dlon / 2) ** 2)
         c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
         return radius * c
-    
+    from matplotlib import colors
     # List to hold all overpass points
     fig = plt.figure(figsize=(10, 5))
     ax = plt.axes(projection=ccrs.PlateCarree())
-    ax.add_feature(cfeature.COASTLINE)
-    ax.add_feature(cfeature.BORDERS, linestyle=':')
+    ax.add_feature(cfeature.COASTLINE, linewidth=1, color="c")
+    ax.add_feature(cfeature.BORDERS, color="w", linewidth=0.5)
+    ax.add_feature(cfeature.LAND, facecolor=colors.to_rgba("c", 0.25))
 
     # Use a colormap to get distinct colors
     colors = cm.tab20b.colors + cm.tab20c.colors
@@ -954,7 +955,7 @@ async def tcpass_custom(ctx, latitude:float, longitude:float, width=4):
                 if 'plotted_path' in locals():
                     plotted_path.pop(0).remove()
     
-    ax.plot(longitude, latitude, 'x', color='k', markersize=5)
+    ax.plot(longitude, latitude, 'x', color='c', markersize=5)
 
     # Set map extent to show the area of interest
     ax.set_extent([longitude - width, longitude + width, latitude - width, latitude + width])
@@ -997,7 +998,9 @@ async def tcpass(ctx, btkID: str):
     import math
     import os
     import numpy as np
-    
+    import matplotlib.style as mplstyle
+
+    mplstyle.use("dark_background") 
     btkID = btkID.lower()
     def _00x_to_xx00(des):
         convert_map = {"l": "al", "e": "ep", "c": "cp", "w":"wp", "a":"io", "b":"io", "s":"sh", "p":"sh"}
@@ -1131,11 +1134,13 @@ async def tcpass(ctx, btkID: str):
         c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
         return radius * c
     
+    from matplotlib import colors
     # List to hold all overpass points
     fig = plt.figure(figsize=(10, 5))
     ax = plt.axes(projection=ccrs.PlateCarree())
-    ax.add_feature(cfeature.COASTLINE)
-    ax.add_feature(cfeature.BORDERS, linestyle=':')
+    ax.add_feature(cfeature.COASTLINE, linewidth=1, color="c")
+    ax.add_feature(cfeature.BORDERS, color="w", linewidth=0.5)
+    ax.add_feature(cfeature.LAND, facecolor=colors.to_rgba("c", 0.25))
 
     # Use a colormap to get distinct colors
     colors = cm.tab20b.colors + cm.tab20c.colors
@@ -1185,7 +1190,7 @@ async def tcpass(ctx, btkID: str):
                 if 'plotted_path' in locals():
                     plotted_path.pop(0).remove()
     
-    ax.plot(longitude, latitude, 'x', color='k', markersize=5)
+    ax.plot(longitude, latitude, 'x', color='c', markersize=5)
 
     # Set map extent to show the area of interest
     ax.set_extent([longitude - 7, longitude + 7, latitude - 7, latitude + 7])
@@ -1227,7 +1232,9 @@ async def tcsst(ctx, btkID: str):
     from datetime import datetime, timedelta
     from matplotlib import cm
     from matplotlib.colors import ListedColormap, LinearSegmentedColormap
+    import matplotlib.style as mplstyle
 
+    mplstyle.use("dark_background") 
     btkID = btkID.lower()
     def _00x_to_xx00(des):
         convert_map = {"l": "al", "e": "ep", "c": "cp", "w":"wp", "a":"io", "b":"io", "s":"sh", "p":"sh"}
@@ -1281,7 +1288,12 @@ async def tcsst(ctx, btkID: str):
     async def generate_and_send_image(btkID, DateTime, centerX, centerY, stormName):
         # Generate the SST map image
         fig, ax = plt.subplots(subplot_kw={'projection': ccrs.PlateCarree()})
-        ax.coastlines()
+        import cartopy.feature as cfeature
+        from matplotlib import colors
+        
+        ax.add_feature(cfeature.COASTLINE, linewidth=1, color="c")
+        ax.add_feature(cfeature.BORDERS, color="w", linewidth=0.75)
+        ax.add_feature(cfeature.LAND, facecolor=colors.to_rgba("c", 0.25))
         gls = ax.gridlines(draw_labels=True, linewidth=0.5, linestyle='--', color='gray')
         gls.top_labels = False   # suppress top labels
         gls.right_labels = False  # suppress right labels
@@ -1448,6 +1460,12 @@ async def tcsst_custom(ctx, centerY:float, centerX:float, offset=0):
         # Generate the SST map image
         fig, ax = plt.subplots(subplot_kw={'projection': ccrs.PlateCarree()})
         ax.coastlines()
+        import cartopy.feature as cfeature
+        from matplotlib import colors
+        
+        ax.add_feature(cfeature.COASTLINE, linewidth=1, color="c")
+        ax.add_feature(cfeature.BORDERS, color="w", linewidth=0.75)
+        ax.add_feature(cfeature.LAND, facecolor=colors.to_rgba("c", 0.25))
         gls = ax.gridlines(draw_labels=True, linewidth=0.5, linestyle='--', color='gray')
         gls.top_labels = False   # suppress top labels
         gls.right_labels = False  # suppress right labels
@@ -2084,7 +2102,7 @@ async def ibtracs(ctx, btkID:str, yr:str):
             if line_num > 3:
                 #Process or print the lines from the 4th line onwards
                 #If IBTRACS ID matches the ID on the script...
-                if lines[18] == IBTRACS_ID or (btkID == lines[5] and yr == lines[6][:4]):
+                if lines[18] == IBTRACS_ID or (btkID == lines[5] and yr == lines[6][:4] and len(lines[20])>1):
                     DateTime.append(lines[6])
                     s_ID = lines[18]
                     cdx.append(lines[20])
@@ -3325,7 +3343,9 @@ async def smap(ctx, btkID, nodeType:str):
     import urllib3
     from bs4 import BeautifulSoup
     import numpy as np
+    import matplotlib.style as mplstyle
 
+    mplstyle.use("dark_background") 
     await ctx.send("Please hold as the data is generated.")
     urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
     #http = urllib3.PoolManager(cert_reqs='CERT_NONE', assert_hostname=False)
@@ -3479,7 +3499,13 @@ async def smap(ctx, btkID, nodeType:str):
     contour_32 = ax.contour(wind.lon, wind.lat, wind.isel(node=nodal), levels=[32], colors='red', transform=ccrs.PlateCarree())
 
     # Add coastlines
-    ax.coastlines()
+    import cartopy.feature as cfeature
+    from matplotlib import colors
+    
+    ax.add_feature(cfeature.COASTLINE, linewidth=1, color="c")
+    ax.add_feature(cfeature.BORDERS, color="w", linewidth=0.75)
+    ax.add_feature(cfeature.LAND, facecolor=colors.to_rgba("c", 0.25))
+    
 
     # Add gridlines
     gls = ax.gridlines(draw_labels=True, linewidth=0.5, linestyle='--', color='gray')
@@ -3623,7 +3649,12 @@ async def smap_custom(ctx, cY:float, cX:float, nodeType:str):
         contour_32 = ax.contour(wind.lon, wind.lat, wind.isel(node=nodal), levels=[32], colors='red', transform=ccrs.PlateCarree())
 
         # Add coastlines
-        ax.coastlines()
+        import cartopy.feature as cfeature
+        from matplotlib import colors
+        
+        ax.add_feature(cfeature.COASTLINE, linewidth=1, color="c")
+        ax.add_feature(cfeature.BORDERS, color="w", linewidth=0.75)
+        ax.add_feature(cfeature.LAND, facecolor=colors.to_rgba("c", 0.25))
 
         gls = ax.gridlines(draw_labels=True, linewidth=0.5, linestyle='--', color='gray')
         gls.top_labels=False   # suppress top labels
@@ -5712,8 +5743,8 @@ async def hodoplot(ctx, btkID:str, yr:str, hour:int, day:int, month:int, year:in
     sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
     sm.set_array([])
     cbar = plt.colorbar(sm, cax=cax, orientation="vertical", label="Pressure Level (hPa)")
-    ax.set_xlabel("U-wind (knots)", fontsize=12)
-    ax.set_ylabel("V-wind (knots)", fontsize=12)
+    ax.set_xlabel("U-wind (m/s)", fontsize=12)
+    ax.set_ylabel("V-wind (m/s)", fontsize=12)
 
     # === Compute and Plot Shear Vectors === #
     shear_layers = {
@@ -5728,7 +5759,7 @@ async def hodoplot(ctx, btkID:str, yr:str, hour:int, day:int, month:int, year:in
     from matplotlib.patches import FancyArrowPatch
     from matplotlib.legend_handler import HandlerPatch
     from matplotlib.lines import Line2D
-    max_shear = []
+    
     class HandlerArrow(HandlerPatch):
         def create_artists(self, legend, orig_handle, xdescent, ydescent, width, height, fontsize, trans):
             # Calculate the center of the arrow
@@ -5747,7 +5778,7 @@ async def hodoplot(ctx, btkID:str, yr:str, hour:int, day:int, month:int, year:in
             )
             p.set_transform(trans)
             return [p]
-
+    max_shear = 0
 
     legend_elements = []
 
@@ -5763,7 +5794,7 @@ async def hodoplot(ctx, btkID:str, yr:str, hour:int, day:int, month:int, year:in
         shear_u = u_upper - u_lower
         shear_v = v_upper - v_lower
         shear_mag = np.sqrt(shear_u**2 + shear_v**2)
-        max_shear.append(shear_mag)
+
         ax.quiver(
         u_lower, v_lower,    # Starting point (lower pressure level)
         shear_u, shear_v,    # Components (direction and magnitude)
@@ -5788,8 +5819,29 @@ async def hodoplot(ctx, btkID:str, yr:str, hour:int, day:int, month:int, year:in
         legend_elements.append(
             (arrow, f"{label}: {shear_mag:.1f} kt")
         )
+    
+    #Max shear calculation:
+    upper, lower = ["200", "250", "300", "350", "400", "450", "500"], ["700", "750", "800", "850", "900"]
+    maxUpper, maxLower = "", ""
+    maxShear = 0
+    for u in upper:
+        for l in lower:
+            u_lower = u_wind.sel(pressure_level=l).values.item()
+            v_lower = v_wind.sel(pressure_level=l).values.item()
+            u_upper = u_wind.sel(pressure_level=u).values.item()
+            v_upper = v_wind.sel(pressure_level=u).values.item()
+
+            shear_u = u_upper - u_lower
+            shear_v = v_upper - v_lower
+            shear_mag = np.sqrt(shear_u**2 + shear_v**2)
+
+            if shear_mag > maxShear:
+                maxShear = shear_mag
+                maxUpper = u
+                maxLower = l
+            
     legend_elements.append(
-            (arrow, f"Max shear: {max(max_shear):.1f} kt")
+            (arrow, f"Max shear: {maxShear:.1f} kt ({maxUpper}-{maxLower} hPa)")
         )
     # Unpack handles and labels
     handles, labels = zip(*legend_elements)
@@ -5813,7 +5865,7 @@ async def hodoplot(ctx, btkID:str, yr:str, hour:int, day:int, month:int, year:in
 
 
 @bot.command(name='hodoplot_custom')
-async def hodoplot_custom(ctx, lat:float, lon:float, hour, day, month, year):
+async def hodoplot_custom(ctx, lat:float, lon:float, hour, day, month, year, gridres=5):
     import cdsapi
     import xarray as xr
     import numpy as np
@@ -5852,7 +5904,7 @@ async def hodoplot_custom(ctx, lat:float, lon:float, hour, day, month, year):
         client.retrieve(dataset, request, filename)
         return filename
 
-    lat_north, lon_west, lat_south, lon_east = lat+2.5, lon-2.5, lat-2.5, lon+2.5  # Define 5×5 grid
+    lat_north, lon_west, lat_south, lon_east = lat+(gridres/2), lon-(gridres/2), lat-(gridres/2), lon+(gridres/2)  # Define grid
     nc_file = retrieve_era5_hodograph(year, month, day, hour, lat_north, lon_west, lat_south, lon_east)
     await ctx.send("API Request to CDS successful, plotting values...")
     ds = xr.open_dataset(nc_file)
@@ -5977,7 +6029,7 @@ async def hodoplot_custom(ctx, lat:float, lon:float, hour, day, month, year):
         shear_u = u_upper - u_lower
         shear_v = v_upper - v_lower
         shear_mag = np.sqrt(shear_u**2 + shear_v**2)
-        max_shear.append(shear_mag)
+
         ax.quiver(
         u_lower, v_lower,    # Starting point (lower pressure level)
         shear_u, shear_v,    # Components (direction and magnitude)
@@ -6002,8 +6054,28 @@ async def hodoplot_custom(ctx, lat:float, lon:float, hour, day, month, year):
         legend_elements.append(
             (arrow, f"{label}: {shear_mag:.1f} kt")
         )
+    #Max shear calculation:
+    upper, lower = ["200", "250", "300", "350", "400", "450", "500"], ["700", "750", "800", "850", "900"]
+    maxUpper, maxLower = "", ""
+    maxShear = 0
+    for u in upper:
+        for l in lower:
+            u_lower = u_wind.sel(pressure_level=l).values.item()
+            v_lower = v_wind.sel(pressure_level=l).values.item()
+            u_upper = u_wind.sel(pressure_level=u).values.item()
+            v_upper = v_wind.sel(pressure_level=u).values.item()
+
+            shear_u = u_upper - u_lower
+            shear_v = v_upper - v_lower
+            shear_mag = np.sqrt(shear_u**2 + shear_v**2)
+
+            if shear_mag > maxShear:
+                maxShear = shear_mag
+                maxUpper = u
+                maxLower = l
+            
     legend_elements.append(
-            (arrow, f"Max shear: {max(max_shear):.1f} kt")
+            (arrow, f"Max shear: {maxShear:.1f} kt ({maxUpper}-{maxLower} hPa)")
         )
     # Unpack handles and labels
     handles, labels = zip(*legend_elements)
@@ -6649,6 +6721,17 @@ async def obama(ctx):
     image_path = 'Obama.PNG'
 
     with open(image_path, 'rb') as image_file:
+        image = discord.File(image_file)
+        await ctx.send(file=image)
+
+@bot.command(name='errol')
+async def errol(ctx):
+    image_path = 'errol_bom.webp'
+    image_path2 = 'errol_bom2.webp'
+    with open(image_path, 'rb') as image_file:
+        image = discord.File(image_file)
+        await ctx.send(file=image)
+    with open(image_path2, 'rb') as image_file:
         image = discord.File(image_file)
         await ctx.send(file=image)
 
