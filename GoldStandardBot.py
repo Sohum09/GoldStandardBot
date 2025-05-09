@@ -1540,8 +1540,7 @@ async def tcsst_custom(ctx, centerY:float, centerX:float, offset=0):
     os.remove('sst_data.nc')
 
 @bot.command(name='tcsst_historical')
-async def tcsst_historical(ctx, centerY:float, centerX:float, date, offset=0):
-    import discord
+async def tcsst_historical(ctx, centerY: float, centerX: float, date, offset=0):
     import urllib3
     from bs4 import BeautifulSoup
     import matplotlib.pyplot as plt
@@ -1552,9 +1551,10 @@ async def tcsst_historical(ctx, centerY:float, centerX:float, date, offset=0):
     import io
     import os
     from datetime import datetime, timedelta
-    from matplotlib import cm
-    from matplotlib.colors import ListedColormap, LinearSegmentedColormap
+    from matplotlib.colors import LinearSegmentedColormap
+    import matplotlib.style as mplstyle
 
+    mplstyle.use("dark_background") 
     if centerY < -90 or centerY > 90 or centerX > 179.99 or centerX < -179.99:
         await ctx.send("Out of bounds!")
         return
@@ -1564,106 +1564,106 @@ async def tcsst_historical(ctx, centerY:float, centerX:float, date, offset=0):
     http = urllib3.PoolManager(cert_reqs='CERT_NONE', assert_hostname=False)
 
     def crw():
-        newcmp = LinearSegmentedColormap.from_list("", [
-        (0/40, '#48003f'),
-        (5/40, "#910087"),
-        (5/40, "#280096"),
-        (10/40, "#6a5bbf"),
-        (10/40, "#000082"),
-        (15/40, "#005aff"),
-        (15/40, "#0075ff"),
-        (20/40, "#00edff"),
-        (20/40, "#00ff00"),
-        (27/40, "#00a100"),
-        (27/40, "#dff200"),
-        (30/40, "#d56900"),
-        (30/40, "#dc5a00"),
-        (35/40, "#730000"),
-        (35/40, "#c86432"),
-        (40/40, "#542e15")])
-        vmax = 40
-        vmin = 0
-
-        return newcmp, vmax, vmin
+        return LinearSegmentedColormap.from_list("", [
+            (0/40, '#48003f'),
+            (5/40, "#910087"),
+            (5/40, "#280096"),
+            (10/40, "#6a5bbf"),
+            (10/40, "#000082"),
+            (15/40, "#005aff"),
+            (15/40, "#0075ff"),
+            (20/40, "#00edff"),
+            (20/40, "#00ff00"),
+            (27/40, "#00a100"),
+            (27/40, "#dff200"),
+            (30/40, "#d56900"),
+            (30/40, "#dc5a00"),
+            (35/40, "#730000"),
+            (35/40, "#c86432"),
+            (40/40, "#542e15")]), 40, 0
 
     async def send_image(image_path):
         with open(image_path, 'rb') as image_file:
-            image = discord.File(image_file)
-            await ctx.send(file=image)
+            await ctx.send(file=discord.File(image_file))
 
-    async def generate_and_send_image(centerX, centerY):
-        # Generate the SST map image
+    async def generate_and_send_image(centerX, centerY, lon, lat, sst):
         fig, ax = plt.subplots(subplot_kw={'projection': ccrs.PlateCarree()})
         ax.coastlines()
+        import cartopy.feature as cfeature
+        from matplotlib import colors
+        
+        ax.add_feature(cfeature.COASTLINE, linewidth=1, color="c")
+        ax.add_feature(cfeature.BORDERS, color="w", linewidth=0.75)
+        ax.add_feature(cfeature.LAND, facecolor=colors.to_rgba("c", 0.25))
         gls = ax.gridlines(draw_labels=True, linewidth=0.5, linestyle='--', color='gray')
-        gls.top_labels = False   # suppress top labels
-        gls.right_labels = False  # suppress right labels
+        gls.top_labels = gls.right_labels = False
 
-        # Plot SST data from 10 degC to 35 degC
         col, vm, vn = crw()
         c = ax.contourf(lon, lat, sst, levels=np.arange(vn, vm, 1), transform=ccrs.PlateCarree(), cmap=col, extend='both')
-        # Add small contour lines for all SSTs
-        contour = ax.contour(lon, lat, sst, levels=np.arange(vn, vm, 1), colors='black', linewidths=0.5, transform=ccrs.PlateCarree())
-
-        # Add a contour line for 26 degrees Celsius
-        contour_level = 26
-        contour = ax.contour(lon, lat, sst, levels=[contour_level], colors='black', linewidths=2, transform=ccrs.PlateCarree())
+        ax.contour(lon, lat, sst, levels=np.arange(vn, vm, 1), colors='black', linewidths=0.5, transform=ccrs.PlateCarree())
+        ax.contour(lon, lat, sst, levels=[26], colors='black', linewidths=2, transform=ccrs.PlateCarree())
 
         plt.colorbar(c, label='Sea Surface Temperature (°C)')
 
         legend_elements = [
-            Line2D([0], [0], marker='x', color='k', label=f'Center location', markerfacecolor='#444764', markersize=10),
-            Line2D([0], [0], marker='_', color='k', label='26 degC SST Isotherm', markerfacecolor='#444764', markersize=10),
+            Line2D([0], [0], marker='x', color='k', label='Center location', markersize=10),
+            Line2D([0], [0], marker='_', color='k', label='26 degC SST Isotherm', markersize=10),
         ]
-
         plt.scatter(centerX, centerY, color='k', marker='x', zorder=10000000)
-        if offset == 0:
-            ax.set_extent([centerX - 10, centerX + 10, centerY - 10, centerY + 10], crs=ccrs.PlateCarree())
-        else:
-            ax.set_extent([centerX - offset, centerX + offset, centerY - offset, centerY + offset], crs=ccrs.PlateCarree())
+
+        ax.set_extent([centerX - offset if offset else centerX - 10,
+                       centerX + offset if offset else centerX + 10,
+                       centerY - offset if offset else centerY - 10,
+                       centerY + offset if offset else centerY + 10], crs=ccrs.PlateCarree())
+
         plt.title(f'SST Map over ({centerY}, {centerX}) on {date}:')
         ax.legend(handles=legend_elements, loc='upper center')
         plt.tight_layout()
-        image_path = f'SST_Map.png'
+        image_path = 'SST_Map.png'
         plt.savefig(image_path, format='png')
         plt.close()
 
-        # Send the generated image
         await send_image(image_path)
-
-        # Remove the temporary image file
         os.remove(image_path)
-    
-    dateArray = date.split('/')
-    day, month, year = dateArray[0], dateArray[1], dateArray[2]
-    int_day, int_month, int_year = int(dateArray[0]), int(dateArray[1]), int(dateArray[2])
-    given_date = datetime(int_year, int_month, int_day)
-    prelim_cutoff_date = given_date - timedelta(days=15)
 
-     # Construct the modified URL using the extracted components
-    if given_date.date() >= prelim_cutoff_date.date():
-        url = f"https://www.ncei.noaa.gov/data/sea-surface-temperature-optimum-interpolation/v2.1/access/avhrr/{year}{month}/oisst-avhrr-v02r01.{year}{month}{day}_preliminary.nc"
+    try:
+        day, month, year = date.split('/')
+        int_day, int_month, int_year = int(day), int(month), int(year)
+        given_date = datetime(int_year, int_month, int_day)
+    except ValueError:
+        await ctx.send("Invalid date format. Use DD/MM/YYYY.")
+        return
+
+    today = datetime.utcnow()
+    if given_date.date() > (today.date() - timedelta(days=15)):
+        file_suffix = "_preliminary.nc"
     else:
-        url = f"https://www.ncei.noaa.gov/data/sea-surface-temperature-optimum-interpolation/v2.1/access/avhrr/{year}{month}/oisst-avhrr-v02r01.{year}{month}{day}.nc"
+        file_suffix = ".nc"
 
-    # Download the netCDF file
+    url = f"https://www.ncei.noaa.gov/data/sea-surface-temperature-optimum-interpolation/v2.1/access/avhrr/{year}{month.zfill(2)}/oisst-avhrr-v02r01.{year}{month.zfill(2)}{day.zfill(2)}{file_suffix}"
+
+    # Download NetCDF file
     response = http.request('GET', url)
+    if response.status != 200 or b'<!DOCTYPE html>' in response.data[:200]:
+        await ctx.send("Failed to retrieve valid NetCDF file. The file may not exist for the given date.")
+        return
+
     with open('sst_data.nc', 'wb') as file:
         file.write(response.data)
 
-    # Open the downloaded netCDF file
-    dataset = netCDF4.Dataset('sst_data.nc')
+    try:
+        dataset = netCDF4.Dataset('sst_data.nc')
+        lat = dataset.variables['lat'][:]
+        lon = dataset.variables['lon'][:]
+        sst = dataset.variables['sst'][0, 0, :, :]  # Convert from Kelvin if needed
+        await generate_and_send_image(centerX, centerY, lon, lat, sst)
+        dataset.close()
+    except Exception as e:
+        await ctx.send(f"Failed to process NetCDF data: {e}")
+    finally:
+        if os.path.exists('sst_data.nc'):
+            os.remove('sst_data.nc')
 
-    # Extract latitude, longitude, and SST data
-    lat = dataset.variables['lat'][:]
-    lon = dataset.variables['lon'][:]
-    sst = dataset.variables['sst'][0, 0, :, :]  # Assuming time and zlev dimensions are 1
-
-    # Generate and send the SST map image
-    await generate_and_send_image(centerX, centerY)
-    dataset.close()
-    # Clean up: remove the downloaded netCDF file
-    os.remove('sst_data.nc')
 
 @bot.command(name='ersst')
 async def ersst(ctx, month:int, year:int):
@@ -2603,6 +2603,9 @@ async def season(ctx, basin:str, yr:str):
     from matplotlib.lines import Line2D
     import os
     import numpy as np
+    import matplotlib.style as mplstyle
+
+    mplstyle.use("dark_background") 
     basin = basin.upper()
     if basin not in ['NA', 'EP','WP', 'NI', 'SI', 'SP']:
         await ctx.send("The basin is not valid! Valid basins are ['NA', 'EP','WP', NI, SI, SP]")
@@ -2819,6 +2822,9 @@ async def seasongen_atcf(ctx, url:str, basin=''):
     import numpy as np
     import matplotlib.colors as mcolors
     import matplotlib.ticker as mticker
+    import matplotlib.style as mplstyle
+
+    mplstyle.use("dark_background") 
     basin = basin.upper()
     
     idl = False
@@ -2909,7 +2915,7 @@ async def seasongen_atcf(ctx, url:str, basin=''):
         else:
             LineX.append(float(cdx[i]))
         LineY.append(float(cdy[i]))
-        plt.plot(LineX, LineY, color="k", linestyle="-", lw=1)
+        plt.plot(LineX, LineY, color="#808080", linestyle="-", lw=1)
     
     #Plotting the markers...
     for i in range(0, len(cdx)):
@@ -3074,6 +3080,9 @@ async def seasongen_hurdat(ctx, url:str, basin=''):
     import os
     import matplotlib.colors as mcolors
     import matplotlib.ticker as mticker
+    import matplotlib.style as mplstyle
+
+    mplstyle.use("dark_background") 
     await ctx.send("Please be patient. As this is a season, the plot may take a little while to generate.")
     basin = basin.upper()
 
@@ -3175,7 +3184,7 @@ async def seasongen_hurdat(ctx, url:str, basin=''):
         else:
             LineX.append(float(cdx[index]))
         LineY.append(float(cdy[index]))
-        plt.plot(LineX, LineY, color="k", linestyle="-", lw=1)
+        plt.plot(LineX, LineY, color="#808080", linestyle="-", lw=1)
         index += 1
 
 
@@ -4373,7 +4382,9 @@ async def trackgen_hurdat(ctx, url:str):
     import matplotlib.colors as mcolors
     import matplotlib.ticker as mticker
     from cartopy.mpl.gridliner import LONGITUDE_FORMATTER, LATITUDE_FORMATTER
+    import matplotlib.style as mplstyle
 
+    mplstyle.use("dark_background") 
     urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
     http = urllib3.PoolManager(cert_reqs='CERT_NONE', assert_hostname=False)
 
@@ -4612,7 +4623,9 @@ async def trackgen_atcf(ctx, url:str):
     import matplotlib.colors as mcolors
     import matplotlib.ticker as mticker
     from cartopy.mpl.gridliner import LONGITUDE_FORMATTER, LATITUDE_FORMATTER
+    import matplotlib.style as mplstyle
 
+    mplstyle.use("dark_background") 
     urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
     http = urllib3.PoolManager(cert_reqs='CERT_NONE', assert_hostname=False)
 
