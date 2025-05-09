@@ -2676,7 +2676,7 @@ async def season(ctx, basin:str, yr:str):
         else:
             LineX.append(float(cdx[i]))
         LineY.append(float(cdy[i]))
-        plt.plot(LineX, LineY, color="k", linestyle="-", lw=1)
+        plt.plot(LineX, LineY, color="w", linestyle="-", lw=1)
     
     #Plotting the markers...
     for i in range(0, len(cdx)):
