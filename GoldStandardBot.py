@@ -3744,50 +3744,53 @@ async def pdoLatest(ctx):
     await ctx.send(f"Latest PDO value for {month[pdoVal[5:7]]} {pdoVal[:4]} = {pdoVal[9:]} °C")
 
 @bot.command(name='pdoplot')
-async def pdoplot(ctx, yr:int):
+async def pdoplot(ctx, year:int):
     import pandas as pd
     import matplotlib.pyplot as plt
-    from io import StringIO
-    import requests
     import os
+    import matplotlib.style as mplstyle
 
-    if(yr < 1905 or yr > 2023):
-        await ctx.send('Data either does not exist for this year or is yet to be created.')
+    mplstyle.use("dark_background")
+    if year < 1854 or year > 2024:
+        await ctx.send("Data is either not available or is currently yet to be created.")
         return
 
-    # URL of the data
-    url = 'https://www.data.jma.go.jp/gmd/kaiyou/data/db/climate/pdo/pdo.txt'
+    # Load the PDO data from the text file
+    file_path = 'pdo.txt' 
+    df = pd.read_csv(file_path)
+    # Filter data for the given year
+    year_data = df[df['Year'] == year]
 
-    # Fetch data from the URL
-    response = requests.get(url)
-    data = StringIO(response.text)
+    # Create a figure and axis
+    fig, ax = plt.subplots()
 
-    # Read the data into a Pandas DataFrame
-    df = pd.read_csv(data, delim_whitespace=True, skiprows=46, names=['Year_Month', 'PDO_Value'], parse_dates=[0])
-    await ctx.send("Please hold as the image is created.")
-    # Filter data for the year
-    df_2023 = df[df['Year_Month'].dt.year == yr]
+    # Plot the data
+    ax.plot(range(len(year_data.columns[1:])), year_data.values[0, 1:], marker='o', color='orange')
 
-    # Plotting
-    plt.figure(figsize=(10, 6))
-    plt.plot(df_2023['Year_Month'], df_2023['PDO_Value'], marker='o', linestyle='-', color='b')
+    # Annotate the values on the plot
+    for i, txt in enumerate(year_data.values[0, 1:]):
+        ax.annotate(f'{txt:.2f}', (i, txt), textcoords="offset points", xytext=(0, 5), ha='center')
 
-    # Add text annotations for each point
-    for i, txt in enumerate(df_2023['PDO_Value']):
-        plt.text(df_2023['Year_Month'].iloc[i], df_2023['PDO_Value'].iloc[i] + 0.05, round(txt, 2),
-                horizontalalignment='center', verticalalignment='bottom', color='black')
-
-    # Formatting
-    plt.title(f'PDO Values in {yr}')
-    plt.xlabel('Year and Month')
-    plt.ylabel('PDO Value (°C)')
-    plt.grid(True)
-    # Adjust x-axis ticks to show every data point
-    plt.xticks(df_2023['Year_Month'], rotation=45, ha='right')
-
+    # Customize x-axis ticks
+    ax.set_xticks(range(len(year_data.columns[1:])))
+    ax.set_xticklabels(year_data.columns[1:])
+    # Background color based on the sign of the values
+    ax.axhspan(0, 1, facecolor='red', alpha=0.1)
+    ax.axhspan(1, 2, facecolor='red', alpha=0.3)
+    ax.axhspan(2, 3, facecolor='red', alpha=0.7)
+    ax.axhspan(3, 4, facecolor='red', alpha=1)
+    ax.axhspan(-1, 0, facecolor='blue', alpha=0.1)
+    ax.axhspan(-2, -1, facecolor='blue', alpha=0.3)
+    ax.axhspan(-3, -2, facecolor='blue', alpha=0.7)
+    ax.axhspan(-4, -3, facecolor='blue', alpha=1)
     # Show the plot
+    plt.title(f'PDO Data for {year} (1854-2024)')
+    plt.xlabel('Months')
+    plt.ylabel('PDO Values')
+    plt.grid(True)
     plt.tight_layout()
-    image_path = f'PDO_plot_for{yr}.png'
+
+    image_path = f'PDO_plot_for{year}.png'
     plt.savefig(image_path, format='png')
     plt.close()
 
@@ -3795,14 +3798,16 @@ async def pdoplot(ctx, yr:int):
         image = discord.File(image_file)
         await ctx.send(file=image)
 
-    os.remove(image_path)  
+    os.remove(image_path)
 
 @bot.command(name='ensoplot')
 async def ensoplot(ctx, year:int):
     import pandas as pd
     import matplotlib.pyplot as plt
     import os
+    import matplotlib.style as mplstyle
 
+    mplstyle.use("dark_background")
     if year < 1882 or year > 2023:
         await ctx.send("Data is either not available or is currently yet to be created.")
         return
@@ -3839,8 +3844,14 @@ async def ensoplot(ctx, year:int):
         plt.annotate(f'{txt:.2f}', (df_year['month'].iloc[i] if year < 1950 else df_year['Month'].iloc[i], txt), textcoords="offset points", xytext=(0, 5), ha='center')
 
     # Background color based on the sign of the values
-    ax.axhspan(0, max(df_year['ENSO' if year < 1950 else 'ONI']), facecolor='red', alpha=0.1)
-    ax.axhspan(min(df_year['ENSO' if year < 1950 else 'ONI']), 0, facecolor='blue', alpha=0.1)
+    ax.axhspan(0, 0.5, facecolor='red', alpha=0.1)
+    ax.axhspan(0.5, 1, facecolor='red', alpha=0.3)
+    ax.axhspan(1, 1.5, facecolor='red', alpha=0.7)
+    ax.axhspan(1.5, 3, facecolor='red', alpha=1)
+    ax.axhspan(-0.5, 0, facecolor='blue', alpha=0.1)
+    ax.axhspan(-1, -0.5, facecolor='blue', alpha=0.3)
+    ax.axhspan(-1.5, -1, facecolor='blue', alpha=0.7)
+    ax.axhspan(-3, -1.5, facecolor='blue', alpha=1)
 
     plt.xticks()
     plt.legend()
@@ -3908,13 +3919,15 @@ async def meiplot(ctx, year:int):
     import pandas as pd
     import matplotlib.pyplot as plt
     import os
+    import matplotlib.style as mplstyle
 
-    if year < 1979 or year > 2023:
+    mplstyle.use("dark_background")
+    if year < 1871 or year > 2023:
         await ctx.send("Data is either not available or is currently yet to be created.")
         return
 
     # Load the MEIv2 data from the text file
-    file_path = 'meiv2.txt'
+    file_path = 'meiv2.txt' if year > 1978 else 'meiv2_old.txt'
     df = pd.read_csv(file_path)
     # Filter data for the given year
     year_data = df[df['Year'] == year]
@@ -3923,7 +3936,7 @@ async def meiplot(ctx, year:int):
     fig, ax = plt.subplots()
 
     # Plot the data
-    ax.plot(range(len(year_data.columns[1:])), year_data.values[0, 1:], marker='o', color='blue')
+    ax.plot(range(len(year_data.columns[1:])), year_data.values[0, 1:], marker='o', color='orange')
 
     # Annotate the values on the plot
     for i, txt in enumerate(year_data.values[0, 1:]):
@@ -3932,10 +3945,18 @@ async def meiplot(ctx, year:int):
     # Customize x-axis ticks
     ax.set_xticks(range(len(year_data.columns[1:])))
     ax.set_xticklabels(year_data.columns[1:])
-
+    # Background color based on the sign of the values
+    ax.axhspan(0, 0.5, facecolor='red', alpha=0.1)
+    ax.axhspan(0.5, 1, facecolor='red', alpha=0.3)
+    ax.axhspan(1, 1.5, facecolor='red', alpha=0.7)
+    ax.axhspan(1.5, 3, facecolor='red', alpha=1)
+    ax.axhspan(-0.5, 0, facecolor='blue', alpha=0.1)
+    ax.axhspan(-1, -0.5, facecolor='blue', alpha=0.3)
+    ax.axhspan(-1.5, -1, facecolor='blue', alpha=0.7)
+    ax.axhspan(-3, -1.5, facecolor='blue', alpha=1)
     # Show the plot
-    plt.title(f'MEIv2 Data for {year} (1979-2023)')
-    plt.xlabel('Months')
+    plt.title(f'MEI Data for {year} (1871-2023)')
+    plt.xlabel('Months (Two monthly averaged)')
     plt.ylabel('MEI Values')
     plt.grid(True)
     plt.tight_layout()
@@ -6174,7 +6195,7 @@ async def windplot(ctx, pres:str, hour:str, day:str, month:str, year:str, areaN=
     
     # Add a color bar, scaled to fit the plot size
     cbar = plt.colorbar(strm.lines, ax=ax, orientation='horizontal', pad=0.05, aspect=50, shrink=0.5)
-    cbar.set_label('Wind Speed (knots)')
+    cbar.set_label('Wind Speed (m/s)')
     
     plt.title(f'ERA5 Reanalysis Streamlines of Winds at {pres} hPa\n {hour.zfill(2)}00 UTC on {day.zfill(2)}/{month.zfill(2)}/{year}')
     plt.xlabel('Longitude')
