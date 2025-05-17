@@ -2,7 +2,7 @@
 
 **Effective Date:** May 17, 2025
 
-This Privacy Policy explains how **GoldStandardBot** (“the Bot”) handles data while operating on the Discord platform.
+Objective: This Privacy Policy explains how **GoldStandardBot** (“the Bot”) handles data while operating on the Discord platform.
 
 ## 1. Data Collection
 
