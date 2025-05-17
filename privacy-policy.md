@@ -14,7 +14,7 @@ GoldStandardBot does **not** collect or store any personally identifiable user d
 ## 2. Data Storage
 
 - The bot does **not store any user data**.
-- All stored data comes from **publicly accessible websites and APIs**, such as weather services or storm tracking platforms.
+- All stored data comes from **publicly accessible websites, datasets, and APIs**, such as weather services or storm tracking platforms.
 
 ## 3. Data Sharing
 
