@@ -6417,7 +6417,7 @@ async def reconplot(ctx, basin:str, aircraftType:str):
     # Combine the rotation transformation with the current plot's transformation
     transform = rotation + ax.transData
 
-    ax.plot(lon, lat, marker=(3, 0, degrees), markersize=10, transform=ax.transData, linestyle='None', color='k')
+    ax.plot(lon, lat, marker=(3, 0, degrees), markersize=10, transform=ax.transData, linestyle='None', color='w')
 
     legend_elements = [Line2D([0], [0], marker='^', color='w', label='Last reported Aircaft Location & Direction Bearing', markerfacecolor='#444764', markersize=10),]
 
