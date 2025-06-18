@@ -245,10 +245,12 @@ async def btk(ctx, btkID:str, yr:str, plotter=''):
     import os
     import numpy as np
     import matplotlib.colors as mcolors
+    import matplotlib.style as mplstyle
 
+    mplstyle.use("dark_background") 
     urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-    #http = urllib3.PoolManager(cert_reqs='CERT_NONE', assert_hostname=False)
-    http = urllib3.PoolManager(cert_reqs='CERT_NONE')
+    http = urllib3.PoolManager(cert_reqs='CERT_NONE', assert_hostname=False)
+    #http = urllib3.PoolManager(cert_reqs='CERT_NONE')
 
     def fetch_url(urlLink):
         response = http.request('GET', urlLink)
@@ -269,9 +271,9 @@ async def btk(ctx, btkID:str, yr:str, plotter=''):
         btkID = _00x_to_xx00(btkID)
 
     if btkID[:2] in ['sh', 'wp', 'io']:
-        btkUrl = f'http://99.105.212.93:8901/bdeck/{yr}/b{btkID}{yr}.dat'
+        btkUrl = f'https://www.natyphoon.top/atcf/temp/b{btkID}{yr}.dat'
     else:
-        btkUrl = f'http://99.105.212.93:8901/bdeck/{yr}/b{btkID}{yr}.dat'
+        btkUrl = f'https://www.natyphoon.top/atcf/temp/b{btkID}{yr}.dat'
     await ctx.send(btkUrl)
     btk_data = fetch_url(btkUrl)
     parsed_data = parse_data(btk_data)
@@ -1011,8 +1013,8 @@ async def tcpass(ctx, btkID: str):
         btkID = _00x_to_xx00(btkID)
     await ctx.send("Please wait. Due to API service times, the figure may take a few seconds to generate.")
     urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-    #http = urllib3.PoolManager(cert_reqs='CERT_NONE', assert_hostname=False)
-    http = urllib3.PoolManager(cert_reqs='CERT_NONE')
+    http = urllib3.PoolManager(cert_reqs='CERT_NONE', assert_hostname=False)
+    #http = urllib3.PoolManager(cert_reqs='CERT_NONE')
     def fetch_url(urlLink):
         response = http.request('GET', urlLink)
         return response.data.decode('utf-8')
@@ -1028,13 +1030,13 @@ async def tcpass(ctx, btkID: str):
     if btkID[:2] in ['sh', 'wp', 'io']:
         if btkID[:2] == 'sh':
             if basinmonth >= 7:
-                btkUrl = f'http://99.105.212.93:8901/bdeck/{basinYear+1}/b{btkID}{basinYear+1}.dat'
+                btkUrl = f'https://www.natyphoon.top/atcf/temp/b{btkID}{basinYear+1}.dat'
             else:
-                btkUrl = f'http://99.105.212.93:8901/bdeck/{basinYear}/b{btkID}{basinYear}.dat'
+                btkUrl = f'https://www.natyphoon.top/atcf/temp/b{btkID}{basinYear}.dat'
         else:
-            btkUrl = f'http://99.105.212.93:8901/bdeck/{basinYear}/b{btkID}{basinYear}.dat'
+            btkUrl = f'https://www.natyphoon.top/atcf/temp/b{btkID}{basinYear}.dat'
     else:
-        btkUrl = f'http://99.105.212.93:8901/bdeck/{basinYear}/b{btkID}{basinYear}.dat'
+        btkUrl = f'https://www.natyphoon.top/atcf/temp/b{btkID}{basinYear}.dat'
 
     btk_data = fetch_url(btkUrl)
     parsed_data = parse_data(btk_data)
@@ -1246,8 +1248,8 @@ async def tcsst(ctx, btkID: str):
 
     await ctx.send("Please wait. Due to my terrible potato laptop, the image may take a while to generate.")
     urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-    #http = urllib3.PoolManager(cert_reqs='CERT_NONE', assert_hostname=False)
-    http = urllib3.PoolManager(cert_reqs='CERT_NONE')
+    http = urllib3.PoolManager(cert_reqs='CERT_NONE', assert_hostname=False)
+    #http = urllib3.PoolManager(cert_reqs='CERT_NONE')
     def fetch_url(urlLink):
         response = http.request('GET', urlLink)
         return response.data.decode('utf-8')
@@ -1337,13 +1339,13 @@ async def tcsst(ctx, btkID: str):
     if btkID[:2] in ['sh', 'wp', 'io']:
         if btkID[:2] == 'sh':
             if basinmonth >= 7:
-                btkUrl = f'http://99.105.212.93:8901/bdeck/{basinYear+1}/b{btkID}{basinYear+1}.dat'
+                btkUrl = f'https://www.natyphoon.top/atcf/temp/b{btkID}{basinYear+1}.dat'
             else:
-                btkUrl = f'http://99.105.212.93:8901/bdeck/{basinYear}/b{btkID}{basinYear}.dat'
+                btkUrl = f'https://www.natyphoon.top/atcf/temp/b{btkID}{basinYear}.dat'
         else:
-            btkUrl = f'http://99.105.212.93:8901/bdeck/{basinYear}/b{btkID}{basinYear}.dat'
+            btkUrl = f'https://www.natyphoon.top/atcf/temp/b{btkID}{basinYear}.dat'
     else:
-        btkUrl = f'http://99.105.212.93:8901/bdeck/{basinYear}/b{btkID}{basinYear}.dat'
+        btkUrl = f'https://www.natyphoon.top/atcf/temp/b{btkID}{basinYear}.dat'
 
     btk_data = fetch_url(btkUrl)
     parsed_data = parse_data(btk_data)
@@ -2321,7 +2323,9 @@ async def mjoplot(ctx, day:int, month:int, year:int):
     import numpy as np
     import math
     import os
-    
+    import matplotlib.style as mplstyle
+
+    mplstyle.use("dark_background") 
     if (day <2 and month < 1 and year <= 1940) or (month > 8 and year >= 2023):
         await ctx.send("Data is not available for this timeframe yet on ECMWF ERAv5.")
         return
@@ -2366,7 +2370,7 @@ async def mjoplot(ctx, day:int, month:int, year:int):
     plt.axis('scaled')
 
     #Plot MJO value
-    plt.scatter(float(mjo_data[4]), -1*float(mjo_data[3]), marker='o', color='r', s=45)
+    plt.scatter(float(mjo_data[4]), -1*float(mjo_data[3]), marker='o', color='r', s=45, zorder=99)
     #          x (RMM PC1) = OMI PC2   y (RMM PC2) = - OMI PC1
 
     #Plot the y = x line split
@@ -2374,30 +2378,30 @@ async def mjoplot(ctx, day:int, month:int, year:int):
     x2 = np.arange(1*math.cos(math.pi/4), 5, 0.1)
     y1 = x1 # y = x
     y2 = x2 # y = x
-    plt.plot(x1, y1, color='k') 
-    plt.plot(x2, y2, color='k') 
+    plt.plot(x1, y1, color='w') 
+    plt.plot(x2, y2, color='w') 
 
     #Plot the y = -x line split
     x3 = np.arange(-5, 1*math.cos(3*math.pi/4)+0.1, 0.1)
     x4 = np.arange(1*math.cos(7*math.pi/4), 5, 0.1)
     y3 = -x3
     y4 = -x4
-    plt.plot(x3, y3, color='k') 
-    plt.plot(x4, y4, color='k') 
+    plt.plot(x3, y3, color='w') 
+    plt.plot(x4, y4, color='w') 
 
     #Plot x-axis
     x5 = np.arange(-5, -0.9, 0.1)
     x6 = np.arange(1, 5, 0.1)
     y5 = np.zeros_like(x5)
     y6 = np.zeros_like(x6)
-    plt.plot(x5, y5, color='k') 
-    plt.plot(x6, y6, color='k') 
+    plt.plot(x5, y5, color='w') 
+    plt.plot(x6, y6, color='w') 
 
     #Plot y-axis
     x7 = np.arange(-5, -0.9, 0.1)
     x8 = np.arange(1, 5, 0.1)
-    plt.plot(np.zeros_like(x7), x7, color='k')
-    plt.plot(np.zeros_like(x8), x8, color='k')
+    plt.plot(np.zeros_like(x7), x7, color='w')
+    plt.plot(np.zeros_like(x8), x8, color='w')
 
     #Plot the phase numbers:
     plt.text(-3.5, -1.33, '1')
@@ -3357,8 +3361,8 @@ async def smap(ctx, btkID, nodeType:str):
     mplstyle.use("dark_background") 
     await ctx.send("Please hold as the data is generated.")
     urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-    #http = urllib3.PoolManager(cert_reqs='CERT_NONE', assert_hostname=False)
-    http = urllib3.PoolManager(cert_reqs='CERT_NONE')
+    http = urllib3.PoolManager(cert_reqs='CERT_NONE', assert_hostname=False)
+    #http = urllib3.PoolManager(cert_reqs='CERT_NONE')
     def fetch_url(urlLink):
         response = http.request('GET', urlLink)
         return response.data.decode('utf-8')
@@ -3385,13 +3389,13 @@ async def smap(ctx, btkID, nodeType:str):
     if btkID[:2] in ['sh', 'wp', 'io']:
         if btkID[:2] == 'sh':
             if basinmonth >= 7:
-                btkUrl = f'http://99.105.212.93:8901/bdeck/{basinYear+1}/b{btkID}{basinYear+1}.dat'
+                btkUrl = f'https://www.natyphoon.top/atcf/temp/b{btkID}{basinYear+1}.dat'
             else:
-                btkUrl = f'http://99.105.212.93:8901/bdeck/{basinYear}/b{btkID}{basinYear}.dat'
+                btkUrl = f'https://www.natyphoon.top/atcf/temp/b{btkID}{basinYear}.dat'
         else:
-            btkUrl = f'http://99.105.212.93:8901/bdeck/{basinYear}/b{btkID}{basinYear}.dat'
+            btkUrl = f'https://www.natyphoon.top/atcf/temp/b{btkID}{basinYear}.dat'
     else:
-        btkUrl = f'http://99.105.212.93:8901/bdeck/{basinYear}/b{btkID}{basinYear}.dat'
+        btkUrl = f'https://www.natyphoon.top/atcf/temp/b{btkID}{basinYear}.dat'
 
     btk_data = fetch_url(btkUrl)
     parsed_data = parse_data(btk_data)
@@ -3495,6 +3499,7 @@ async def smap(ctx, btkID, nodeType:str):
         timePass += f"{hr}{min} UTC"
 
     # Find the maximum wind value within the bounding box
+    wind_bounded = wind_bounded.isel(node = nodal)
     max_wind_value = wind_bounded.max()
 
     # Create the plot
@@ -3982,8 +3987,8 @@ async def tcprofile_ssd(ctx, btkID:str, yr:str):
     import os
 
     urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-    #http = urllib3.PoolManager(cert_reqs='CERT_NONE', assert_hostname=False)
-    http = urllib3.PoolManager(cert_reqs='CERT_NONE')
+    http = urllib3.PoolManager(cert_reqs='CERT_NONE', assert_hostname=False)
+    #http = urllib3.PoolManager(cert_reqs='CERT_NONE')
     def fetch_url(urlLink):
         response = http.request('GET', urlLink)
         return response.data.decode('utf-8')
@@ -3995,9 +4000,9 @@ async def tcprofile_ssd(ctx, btkID:str, yr:str):
     await ctx.send("Please wait. Due to my terrible potato laptop, the image may take a while to generate.")
 
     if btkID[:2] in ['sh', 'wp', 'io']:
-        btkUrl = f'http://99.105.212.93:8901/bdeck/{yr}/b{btkID}{yr}.dat'
+        btkUrl = f'https://www.natyphoon.top/atcf/temp/b{btkID}{yr}.dat'
     else:
-        btkUrl = f'http://99.105.212.93:8901/bdeck/{yr}/b{btkID}{yr}.dat'
+        btkUrl = f'https://www.natyphoon.top/atcf/temp/b{btkID}{yr}.dat'
 
     btk_data = fetch_url(btkUrl)
     parsed_data = parse_data(btk_data)
@@ -6228,7 +6233,9 @@ async def reconplot(ctx, basin:str, aircraftType:str):
     import matplotlib.transforms as transforms
     import math
     import os
+    import matplotlib.style as mplstyle
 
+    mplstyle.use("dark_background") 
     await ctx.send("Please be patient as the data is plotted.")
     basin = basin.upper()
     aircraftType = aircraftType.upper()
@@ -6412,7 +6419,7 @@ async def reconplot(ctx, basin:str, aircraftType:str):
 
     ax.plot(lon, lat, marker=(3, 0, degrees), markersize=10, transform=ax.transData, linestyle='None', color='k')
 
-    legend_elements = [Line2D([0], [0], marker='^', color='k', label='Last reported Aircaft Location & Direction Bearing', markerfacecolor='#444764', markersize=10),]
+    legend_elements = [Line2D([0], [0], marker='^', color='w', label='Last reported Aircaft Location & Direction Bearing', markerfacecolor='#444764', markersize=10),]
 
     ax.set_extent([minLong-0.05, maxLong+0.05, minLat-0.05, maxLat+0.05], crs=ccrs.PlateCarree())
 
