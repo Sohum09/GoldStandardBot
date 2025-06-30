@@ -851,14 +851,15 @@ async def tcpass_custom(ctx, latitude:float, longitude:float, width=4):
     SATELLITES = ["29522", "35951", "28054", "27424", "25994", "39260", "43010", "41882",
                 "38337", "38771", "43689", "54234", "43013", "33591", "28654", "37849",
                 "39574", "39634", "36036", "40376", 
-                "44322", "44324", "44323", "32382"]
+                "44322", "44324", "44323", "32382", "64694"]
     #Archived TROPICS Passes: "56753", "56442", "56444", "56754", 
     satelliteMap = {"28054":"DMSP F16", "29522":"DMSP F17", "35951":"DMSP F18", "27424":"AQUA",
                     "25994": "TERRA", "39260":"FENGYUN 3C", "43010":"FENGYUN 3D", "41882":"FENGYUN 4A",
                     "38337":"GCOM-W1", "38771":"METOP-B", "43689":"METOP-C", "54234":"NOAA 21", "43013":"NOAA 20",
                     "33591":"NOAA 19", "28654":"NOAA 18", "37849":"SUOMI NPP", "39574":"GPM-CORE", 
                     "56753":"TROPICS-03", "56442":"TROPICS-05", "56444":"TROPICS-06", "56754":"TROPICS-07", "39634":"SENTINEL-1A",
-                    "36036": "SMOS", "40376":"SMAP", "44322":"RCM-1", "44324":"RCM-2", "44323":"RCM-3", "32382":"RADARSAT-2"}
+                    "36036": "SMOS", "40376":"SMAP", "44322":"RCM-1", "44324":"RCM-2", "44323":"RCM-3", "32382":"RADARSAT-2",
+                    "64694":"GOSAT-GW"}
 
 
     # Function to fetch data for a single satellite
@@ -1085,14 +1086,15 @@ async def tcpass(ctx, btkID: str):
     SATELLITES = ["29522", "35951", "28054", "27424", "25994", "39260", "43010", "41882",
                 "38337", "38771", "43689", "54234", "43013", "33591", "28654", "37849",
                 "39574", "39634", "36036", "40376", 
-                "44322", "44324", "44323", "32382"]
+                "44322", "44324", "44323", "32382", "64694"]
     #Archived TROPICS Passes: "56753", "56442", "56444", "56754", 
     satelliteMap = {"28054":"DMSP F16", "29522":"DMSP F17", "35951":"DMSP F18", "27424":"AQUA",
                     "25994": "TERRA", "39260":"FENGYUN 3C", "43010":"FENGYUN 3D", "41882":"FENGYUN 4A",
                     "38337":"GCOM-W1", "38771":"METOP-B", "43689":"METOP-C", "54234":"NOAA 21", "43013":"NOAA 20",
                     "33591":"NOAA 19", "28654":"NOAA 18", "37849":"SUOMI NPP", "39574":"GPM-CORE", 
                     "56753":"TROPICS-03", "56442":"TROPICS-05", "56444":"TROPICS-06", "56754":"TROPICS-07", "39634":"SENTINEL-1A",
-                    "36036": "SMOS", "40376":"SMAP", "44322":"RCM-1", "44324":"RCM-2", "44323":"RCM-3", "32382":"RADARSAT-2"}
+                    "36036":"SMOS", "40376":"SMAP", "44322":"RCM-1", "44324":"RCM-2", "44323":"RCM-3", "32382":"RADARSAT-2",
+                    "64694":"GOSAT-GW"}
 
 
     # Function to fetch data for a single satellite
@@ -6839,4 +6841,4 @@ async def commandHelp(ctx):
     await ctx.send("For the full command list, consult the google document here:\n")
     await ctx.send(url)
 
-bot.run(AUTH_TOKEN)
+bot.run(BOT_TOKEN)
