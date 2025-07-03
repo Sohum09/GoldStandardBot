@@ -791,7 +791,7 @@ async def iso26(ctx, basin:str):
         await ctx.send("Error 404: The image either does not exist or is yet to be created.")
 
 @bot.command(name='mw')
-async def mw(ctx, btkID:str, mw_type:str):
+async def mw(ctx, btkID:str, mw_type:str, lookback=1):
     mw_type = mw_type.lower()
     btkID = btkID.lower()
     if mw_type not in ['low', 'mid', 'upper', 'lower', 'up']:
@@ -805,11 +805,11 @@ async def mw(ctx, btkID:str, mw_type:str):
     http = urllib3.PoolManager(cert_reqs='CERT_NONE')
     url = ""
     if mw_type == 'mid':
-        url = f"https://science.nrlmry.navy.mil/geoips/prod_api/tcweb/products/{btkID[4:]}?storm_id={btkID}&sensor=amsr2&sensor=gmi&sensor=tms&sensor=ssmis&product=89H&product=91H"
+        url = f"https://science.nrlmry.navy.mil/geoips/prod_api/tcweb/products/{btkID[4:]}?storm_id={btkID}&product=89H&product=91H"
     if mw_type == 'low' or mw_type == 'lower':
-        url = f"https://science.nrlmry.navy.mil/geoips/prod_api/tcweb/products/{btkID[4:]}?storm_id={btkID}&sensor=amsr2&sensor=gmi&sensor=tms&sensor=ssmis&&sensor=covwr&product=color34&product=color37"
+        url = f"https://science.nrlmry.navy.mil/geoips/prod_api/tcweb/products/{btkID[4:]}?storm_id={btkID}&product=color34&product=color37"
     if mw_type == 'up' or mw_type == 'upper':
-        url = f"https://science.nrlmry.navy.mil/geoips/prod_api/tcweb/products/{btkID[4:]}?storm_id={btkID}&sensor=amsr2&sensor=gmi&sensor=tms&sensor=ssmis&sensor=atms&sensor=mhs&sensor=covwr&sensor=tempest&product=165H&product=176H&product=180H&product=182H&product=183-1H&product=183-3H&product=183H&product=18p7H-aft"
+        url = f"https://science.nrlmry.navy.mil/geoips/prod_api/tcweb/products/{btkID[4:]}?storm_id={btkID}&product=165H&product=176H&product=180H&product=182H&product=183-1H&product=183-3H&product=183H&product=18p7H-aft&product=184p4&product=204p8&product=TB325-1"
 
     # Make the request
     response = http.request('GET', url)
@@ -832,13 +832,26 @@ async def mw(ctx, btkID:str, mw_type:str):
 
     from datetime import datetime
 
-    latest = max(
+    products_sorted = sorted(
         data.get('products', []),
-        key=lambda x: datetime.fromisoformat(x['product_date'])
+        key=lambda x: datetime.fromisoformat(x['product_date']),
+        reverse=True  # Most recent first
     )
 
-    await ctx.send(f"Latest product: {latest['product']} from {latest['sensor']} on {latest['product_date']}")
-    image_url = latest['product_url'].replace("http://", "https://")
+    if lookback < 1:
+        await ctx.send("Invalid lookback value. You can't see the future!")
+        return None
+
+    if len(products_sorted) >= lookback:
+        selected = products_sorted[lookback - 1]
+        if lookback > 1:
+            await ctx.send(f"Latest available product on lookback = {lookback}: {selected['product']} from {selected['sensor']} on {selected['product_date']}")
+        else:
+            await ctx.send(f"Latest available product: {selected['product']} from {selected['sensor']} on {selected['product_date']}")
+        image_url = selected['product_url'].replace("http://", "https://")
+    else:
+        await ctx.send(f"Not enough products to look back {lookback} steps.")
+        return None
 
     # Fetch the image
     img_response = http.request('GET', image_url)
