@@ -809,7 +809,7 @@ async def mw(ctx, btkID:str, mw_type:str):
     if mw_type == 'low' or mw_type == 'lower':
         url = f"https://science.nrlmry.navy.mil/geoips/prod_api/tcweb/products/{btkID[4:]}?storm_id={btkID}&sensor=amsr2&sensor=gmi&sensor=tms&sensor=ssmis&&sensor=covwr&product=color34&product=color37"
     if mw_type == 'up' or mw_type == 'upper':
-        url = f"https://science.nrlmry.navy.mil/geoips/prod_api/tcweb/products/{btkID[4:]}?storm_id={btkID}&sensor=amsr2&sensor=gmi&sensor=tms&sensor=ssmis&sensor=atms&sensor=mhs&sensor=covwr&product=165H&product=183-1H&product=183-3H&product=183H&product=18p7H-aft"
+        url = f"https://science.nrlmry.navy.mil/geoips/prod_api/tcweb/products/{btkID[4:]}?storm_id={btkID}&sensor=amsr2&sensor=gmi&sensor=tms&sensor=ssmis&sensor=atms&sensor=mhs&sensor=covwr&sensor=tempest&product=165H&product=176H&product=180H&product=182H&product=183-1H&product=183-3H&product=183H&product=18p7H-aft"
 
     # Make the request
     response = http.request('GET', url)
