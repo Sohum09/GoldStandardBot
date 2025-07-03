@@ -790,6 +790,62 @@ async def iso26(ctx, basin:str):
     else:
         await ctx.send("Error 404: The image either does not exist or is yet to be created.")
 
+@bot.command(name='mw')
+async def mw(ctx, btkID:str, mw_type:str):
+    mw_type = mw_type.lower()
+    btkID = btkID.lower()
+    if mw_type not in ['low', 'mid', 'upper', 'lower', 'up']:
+        await ctx.send("Invalid MW type. Please send operational storm data in these three types: ['Low', 'Mid', 'Upper']")
+        return None
+    import json
+    import urllib3
+    from io import BytesIO
+
+    urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+    http = urllib3.PoolManager(cert_reqs='CERT_NONE')
+    url = ""
+    if mw_type == 'mid':
+        url = f"https://science.nrlmry.navy.mil/geoips/prod_api/tcweb/products/{btkID[4:]}?storm_id={btkID}&sensor=amsr2&sensor=gmi&sensor=tms&sensor=ssmis&product=89H&product=91H"
+    if mw_type == 'low' or mw_type == 'lower':
+        url = f"https://science.nrlmry.navy.mil/geoips/prod_api/tcweb/products/{btkID[4:]}?storm_id={btkID}&sensor=amsr2&sensor=gmi&sensor=tms&sensor=ssmis&&sensor=covwr&product=color34&product=color37"
+    if mw_type == 'up' or mw_type == 'upper':
+        url = f"https://science.nrlmry.navy.mil/geoips/prod_api/tcweb/products/{btkID[4:]}?storm_id={btkID}&sensor=amsr2&sensor=gmi&sensor=tms&sensor=ssmis&sensor=atms&sensor=mhs&sensor=covwr&product=165H&product=183-1H&product=183-3H&product=183H&product=18p7H-aft"
+
+    # Make the request
+    response = http.request('GET', url)
+
+    # Print raw response data for debugging
+    response_data = response.data.decode('utf-8')
+    #print(f"Raw response data:", response_data)
+
+    # Check the content type
+    if response.headers.get('Content-Type') == 'application/json':
+        try:
+            # Parse the JSON response
+            data = json.loads(response_data)
+            #print(f"Parsed data", data)
+            #print(data.get('data', [])) 
+        except json.JSONDecodeError as e:
+            print(f"JSON decode error:", e)
+    else:
+        print(f"Unexpected content type for:", response.headers.get('Content-Type'))
+
+    from datetime import datetime
+
+    latest = max(
+        data.get('products', []),
+        key=lambda x: datetime.fromisoformat(x['product_date'])
+    )
+
+    await ctx.send(f"Latest product: {latest['product']} from {latest['sensor']} on {latest['product_date']}")
+    image_url = latest['product_url'].replace("http://", "https://")
+
+    # Fetch the image
+    img_response = http.request('GET', image_url)
+    img_bytes = BytesIO(img_response.data)
+    img_bytes.seek(0)
+    await ctx.send(file=discord.File(img_bytes, 'image.png'))
+
 @bot.command(name='mpi')
 async def mpi(ctx, basin:str):
     import requests
@@ -818,7 +874,6 @@ async def tcpass_custom(ctx, latitude:float, longitude:float, width=4):
     import urllib3
     from bs4 import BeautifulSoup
     import json
-    import urllib3
     from datetime import datetime, timedelta
     from urllib.parse import quote
     import matplotlib.pyplot as plt
@@ -851,7 +906,7 @@ async def tcpass_custom(ctx, latitude:float, longitude:float, width=4):
     SATELLITES = ["29522", "35951", "28054", "27424", "25994", "39260", "43010", "41882",
                 "38337", "38771", "43689", "54234", "43013", "33591", "28654", "37849",
                 "39574", "39634", "36036", "40376", 
-                "44322", "44324", "44323", "32382", "64694"]
+                "44322", "44324", "44323", "32382", "64694", "59481", "62261"]
     #Archived TROPICS Passes: "56753", "56442", "56444", "56754", 
     satelliteMap = {"28054":"DMSP F16", "29522":"DMSP F17", "35951":"DMSP F18", "27424":"AQUA",
                     "25994": "TERRA", "39260":"FENGYUN 3C", "43010":"FENGYUN 3D", "41882":"FENGYUN 4A",
@@ -859,7 +914,7 @@ async def tcpass_custom(ctx, latitude:float, longitude:float, width=4):
                     "33591":"NOAA 19", "28654":"NOAA 18", "37849":"SUOMI NPP", "39574":"GPM-CORE", 
                     "56753":"TROPICS-03", "56442":"TROPICS-05", "56444":"TROPICS-06", "56754":"TROPICS-07", "39634":"SENTINEL-1A",
                     "36036": "SMOS", "40376":"SMAP", "44322":"RCM-1", "44324":"RCM-2", "44323":"RCM-3", "32382":"RADARSAT-2",
-                    "64694":"GOSAT-GW"}
+                    "64694":"GOSAT-GW", "59481":"WSF-M", "62261":"SENTINEL-1C"}
 
 
     # Function to fetch data for a single satellite
@@ -1086,7 +1141,7 @@ async def tcpass(ctx, btkID: str):
     SATELLITES = ["29522", "35951", "28054", "27424", "25994", "39260", "43010", "41882",
                 "38337", "38771", "43689", "54234", "43013", "33591", "28654", "37849",
                 "39574", "39634", "36036", "40376", 
-                "44322", "44324", "44323", "32382", "64694"]
+                "44322", "44324", "44323", "32382", "64694", "59481", "62261"]
     #Archived TROPICS Passes: "56753", "56442", "56444", "56754", 
     satelliteMap = {"28054":"DMSP F16", "29522":"DMSP F17", "35951":"DMSP F18", "27424":"AQUA",
                     "25994": "TERRA", "39260":"FENGYUN 3C", "43010":"FENGYUN 3D", "41882":"FENGYUN 4A",
@@ -1094,7 +1149,7 @@ async def tcpass(ctx, btkID: str):
                     "33591":"NOAA 19", "28654":"NOAA 18", "37849":"SUOMI NPP", "39574":"GPM-CORE", 
                     "56753":"TROPICS-03", "56442":"TROPICS-05", "56444":"TROPICS-06", "56754":"TROPICS-07", "39634":"SENTINEL-1A",
                     "36036":"SMOS", "40376":"SMAP", "44322":"RCM-1", "44324":"RCM-2", "44323":"RCM-3", "32382":"RADARSAT-2",
-                    "64694":"GOSAT-GW"}
+                    "64694":"GOSAT-GW", "59481": "WSF-M", "62261":"SENTINEL-1C"}
 
 
     # Function to fetch data for a single satellite
@@ -6841,4 +6896,4 @@ async def commandHelp(ctx):
     await ctx.send("For the full command list, consult the google document here:\n")
     await ctx.send(url)
 
-bot.run(BOT_TOKEN)
+bot.run(AUTH_TOKEN)
