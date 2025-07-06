@@ -1289,6 +1289,242 @@ async def tcpass(ctx, btkID: str):
 
     os.remove(image_path)  
 
+@bot.command(name='tchp')
+async def tchp(ctx, btkID:str):
+    import urllib3
+    from bs4 import BeautifulSoup
+    from datetime import datetime
+
+    import matplotlib.style as mplstyle
+
+    mplstyle.use("dark_background") 
+    btkID = btkID.lower()
+    def _00x_to_xx00(des):
+        convert_map = {"l": "al", "e": "ep", "c": "cp", "w":"wp", "a":"io", "b":"io", "s":"sh", "p":"sh"}
+        return convert_map[des[-1]] + des[:-1]
+
+    import re
+    if re.match(r"^\d{2}[a-z]$", btkID):    
+        btkID = _00x_to_xx00(btkID)
+
+    await ctx.send("Please wait. Due to my terrible potato laptop, the image may take a while to generate.")
+    urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+    http = urllib3.PoolManager(cert_reqs='CERT_NONE', assert_hostname=False)
+    #http = urllib3.PoolManager(cert_reqs='CERT_NONE')
+
+    def fetch_url(urlLink):
+        response = http.request('GET', urlLink)
+        return response.data.decode('utf-8')
+
+    def parse_data(html_content):
+        soup = BeautifulSoup(html_content, 'html.parser')
+        return soup.get_text()
+
+    basinDate = datetime.now()
+    basinmonth = basinDate.month
+    basinYear = basinDate.year
+    if btkID[:2] in ['sh', 'wp', 'io']:
+        if btkID[:2] == 'sh':
+            if basinmonth >= 7:
+                btkUrl = f'https://www.natyphoon.top/atcf/temp/b{btkID}{basinYear+1}.dat'
+            else:
+                btkUrl = f'https://www.natyphoon.top/atcf/temp/b{btkID}{basinYear}.dat'
+        else:
+            btkUrl = f'https://www.natyphoon.top/atcf/temp/b{btkID}{basinYear}.dat'
+    else:
+        btkUrl = f'https://www.natyphoon.top/atcf/temp/b{btkID}{basinYear}.dat'
+
+    btk_data = fetch_url(btkUrl)
+    parsed_data = parse_data(btk_data)
+    lines = parsed_data.split('\n')
+    cdx, cdy, DateTime, timeCheck = [], [], [], []
+    stormName = ""
+
+    for line in lines:
+        if line.strip():
+            parameters = line.split(',')
+            if parameters[6][-1] == 'S':
+                cdy.append((float(parameters[6][:-1].strip()) / 10) * -1)
+            else:
+                cdy.append(float(parameters[6][:-1].strip()) / 10)
+            if parameters[7][-1] == 'W':
+                cdx.append((float(parameters[7][:-1].strip()) / 10) * -1)
+            else:
+                cdx.append(float(parameters[7][:-1].strip()) / 10)
+            timeCheck.append((parameters[2][-2:].strip()))
+            date = parameters[2].strip()
+            date = f'{date[:4]}-{date[4:6]}-{date[6:8]} {timeCheck[-1]}:00:00'
+            DateTime.append(date)
+            stormName = parameters[27].strip()
+    await ctx.send("Storm located, generating tchp data from OpenDAP...")
+    centerX, centerY = cdx[-1], cdy[-1]
+
+    import xarray as xr
+    import matplotlib.pyplot as plt
+    import cartopy.crs as ccrs
+    import cartopy.feature as cfeature
+    import numpy as np
+    import os
+  
+    # Load dataset
+    url = f"https://cwcgom.aoml.noaa.gov/thredds/dodsC/TCHP/TCHP.nc"
+    ds = xr.open_dataset(url)
+    await ctx.send("Data loaded, plotting values...")
+    tchp = ds["Tropical_Cyclone_Heat_Potential"].isel(time=-1)
+    time_str = str(tchp.time.values).split("T")[0]
+    time_of_day_str = str(tchp.time.values).split("T")[1]
+
+    # Subset region with valid data
+    ohc_subset = tchp.sel(lat=slice(centerY-10, centerY+10), lon=slice(centerX-10, centerX+10))
+    # Create figure and map axis
+    fig = plt.figure(figsize=(13, 7))
+    ax = fig.add_subplot(1, 1, 1, projection=ccrs.PlateCarree())
+    ax.set_extent([centerX-10, centerX+10, centerY-10, centerY+10], crs=ccrs.PlateCarree())
+
+    # Plot filled contours
+    levels = np.arange(0, 193, 1)
+    cf = ax.contourf(
+        ohc_subset.lon,
+        ohc_subset.lat,
+        ohc_subset,
+        levels=levels,
+        cmap="turbo",
+        vmin=0,
+        vmax=193,
+        extend="both"
+    )
+
+    # Dynamically align colorbar to map height
+    pos = ax.get_position()
+    cbar_ax = fig.add_axes([pos.x1 + 0.02, pos.y0, 0.02, pos.height])
+    cbar = plt.colorbar(cf, cax=cbar_ax, orientation="vertical", label="TCHP (kJ/cm²)")
+    cbar.set_ticks(np.arange(0, 193, 25))
+
+    # Highlight thresholds
+    for val, color in zip([16, 60, 100, 125, 160], ["cyan", "green", "brown", "red", "black"]):
+        cs = ax.contour(ohc_subset.lon, ohc_subset.lat, ohc_subset, levels=[val], colors=[color], linewidths=2)
+        ax.clabel(cs, fmt={val: f"{val}"}, inline=True, fontsize=10)
+
+    # Add land and gridlines
+    from matplotlib import colors      
+    ax.add_feature(cfeature.COASTLINE, linewidth=1, color="c")
+    ax.add_feature(cfeature.BORDERS, color="w", linewidth=0.75)
+    ax.add_feature(cfeature.LAND, facecolor=colors.to_rgba("c", 0.25))
+    gl = ax.gridlines(draw_labels=True, linewidth=0.5, linestyle='--', color='gray')
+    gl.top_labels = False   # suppress top labels
+    gl.right_labels = False  # suppress right labels
+    
+    relevant_val = ohc_subset.sel(lat=centerY, lon=centerX, method="nearest").values.item()
+
+    from matplotlib.lines import Line2D
+    legend_elements = [
+        Line2D([0], [0], marker='x', color='r', label=f'TCHP Value over storm: {relevant_val:.2f} kJ/cm²', markerfacecolor='#444764', markersize=10),
+        
+    ]
+    ax.scatter(centerX, centerY, color='r', marker='x', s=100, zorder=10, transform=ccrs.PlateCarree())
+    # Title
+    ax.set_title(f"Tropical Cyclone Heat Potential (TCHP) for {btkID.upper()} {stormName} | ATCF Time: {DateTime[-1]}\nTime of latest reading: {time_str} {time_of_day_str[:8]} UTC", fontsize=12)
+    ax.legend(handles=legend_elements, loc='upper right')
+    plt.tight_layout()
+    image_path = f'{btkID}_SST_Map.png'
+    plt.savefig(image_path, format='png', bbox_inches='tight')
+    plt.close()
+
+    async def send_image(image_path):
+        with open(image_path, 'rb') as image_file:
+            image = discord.File(image_file)
+            await ctx.send(file=image)
+
+    # Send the generated image
+    await send_image(image_path)
+
+    # Remove the temporary image file
+    os.remove(image_path)
+
+@bot.command(name='tchp_custom')
+async def tchp_custom(ctx, centerY:float, centerX:float):
+    import xarray as xr
+    import matplotlib.pyplot as plt
+    import cartopy.crs as ccrs
+    import cartopy.feature as cfeature
+    import numpy as np
+    import os
+
+    await ctx.send("Data received...")
+    # Load dataset
+    url = f"https://cwcgom.aoml.noaa.gov/thredds/dodsC/TCHP/TCHP.nc"
+    ds = xr.open_dataset(url)
+    await ctx.send("Data loaded, plotting values...")
+    tchp = ds["Tropical_Cyclone_Heat_Potential"].isel(time=-1)
+    time_str = str(tchp.time.values).split("T")[0]
+    time_of_day_str = str(tchp.time.values).split("T")[1]
+
+    # Subset region with valid data
+    ohc_subset = tchp.sel(lat=slice(centerY-10, centerY+10), lon=slice(centerX-10, centerX+10))
+    # Create figure and map axis
+    fig = plt.figure(figsize=(13, 7))
+    ax = fig.add_subplot(1, 1, 1, projection=ccrs.PlateCarree())
+    ax.set_extent([centerX-10, centerX+10, centerY-10, centerY+10], crs=ccrs.PlateCarree())
+
+    # Plot filled contours
+    levels = np.arange(0, 193, 1)
+    cf = ax.contourf(
+        ohc_subset.lon,
+        ohc_subset.lat,
+        ohc_subset,
+        levels=levels,
+        cmap="turbo",
+        vmin=0,
+        vmax=193,
+        extend="both"
+    )
+
+    # Dynamically align colorbar to map height
+    pos = ax.get_position()
+    cbar_ax = fig.add_axes([pos.x1 + 0.02, pos.y0, 0.02, pos.height])
+    cbar = plt.colorbar(cf, cax=cbar_ax, orientation="vertical", label="TCHP (kJ/cm²)")
+    cbar.set_ticks(np.arange(0, 193, 25))
+
+    # Highlight thresholds
+    for val, color in zip([16, 60, 100, 125, 160], ["cyan", "green", "brown", "red", "black"]):
+        cs = ax.contour(ohc_subset.lon, ohc_subset.lat, ohc_subset, levels=[val], colors=[color], linewidths=2)
+        ax.clabel(cs, fmt={val: f"{val}"}, inline=True, fontsize=10)
+
+    # Add land and gridlines
+    from matplotlib import colors      
+    ax.add_feature(cfeature.COASTLINE, linewidth=1, color="c")
+    ax.add_feature(cfeature.BORDERS, color="w", linewidth=0.75)
+    ax.add_feature(cfeature.LAND, facecolor=colors.to_rgba("c", 0.25))
+    gl = ax.gridlines(draw_labels=True, linewidth=0.5, linestyle='--', color='gray')
+    gl.top_labels = False   # suppress top labels
+    gl.right_labels = False  # suppress right labels
+    
+    relevant_val = ohc_subset.sel(lat=centerY, lon=centerX, method="nearest").values.item()
+
+    from matplotlib.lines import Line2D
+    legend_elements = [
+        Line2D([0], [0], marker='x', color='r', label=f'TCHP Value over storm: {relevant_val:.2f} kJ/cm²', markerfacecolor='#444764', markersize=10),    
+    ]
+    ax.scatter(centerX, centerY, color='r', marker='x', s=100, zorder=10, transform=ccrs.PlateCarree())
+    # Title
+    ax.set_title(f"Tropical Cyclone Heat Potential (TCHP) for ({centerY}, {centerX})\nTime of latest reading: {time_str} {time_of_day_str[:8]} UTC", fontsize=12)
+    ax.legend(handles=legend_elements, loc='upper right')
+    plt.tight_layout()
+    image_path = f'_SST_Map.png'
+    plt.savefig(image_path, format='png', bbox_inches='tight')
+    plt.close()
+
+    async def send_image(image_path):
+        with open(image_path, 'rb') as image_file:
+            image = discord.File(image_file)
+            await ctx.send(file=image)
+
+    # Send the generated image
+    await send_image(image_path)
+
+    # Remove the temporary image file
+    os.remove(image_path)
+
 @bot.command(name='tcsst')
 async def tcsst(ctx, btkID: str):
     import discord
