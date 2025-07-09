@@ -1421,7 +1421,10 @@ async def tchp(ctx, btkID:str):
         Line2D([0], [0], marker='x', color='r', label=f'TCHP Value over storm: {relevant_val:.2f} kJ/cm²', markerfacecolor='#444764', markersize=10),
         
     ]
-    ax.scatter(centerX, centerY, color='r', marker='x', s=100, zorder=10, transform=ccrs.PlateCarree())
+    if relevant_val < 125:
+        ax.scatter(centerX, centerY, color='r', marker='x', s=100, zorder=10, transform=ccrs.PlateCarree())
+    else:
+        ax.scatter(centerX, centerY, color='k', marker='x', s=100, zorder=10, transform=ccrs.PlateCarree())
     # Title
     ax.set_title(f"Tropical Cyclone Heat Potential (TCHP) for {btkID.upper()} {stormName} | ATCF Time: {DateTime[-1]}\nTime of latest reading: {time_str} {time_of_day_str[:8]} UTC", fontsize=12)
     ax.legend(handles=legend_elements, loc='upper right')
@@ -1505,7 +1508,12 @@ async def tchp_custom(ctx, centerY:float, centerX:float):
     legend_elements = [
         Line2D([0], [0], marker='x', color='r', label=f'TCHP Value over storm: {relevant_val:.2f} kJ/cm²', markerfacecolor='#444764', markersize=10),    
     ]
-    ax.scatter(centerX, centerY, color='r', marker='x', s=100, zorder=10, transform=ccrs.PlateCarree())
+
+    if relevant_val < 125:
+        ax.scatter(centerX, centerY, color='r', marker='x', s=100, zorder=10, transform=ccrs.PlateCarree())
+    else:
+        ax.scatter(centerX, centerY, color='k', marker='x', s=100, zorder=10, transform=ccrs.PlateCarree())
+    
     # Title
     ax.set_title(f"Tropical Cyclone Heat Potential (TCHP) for ({centerY}, {centerX})\nTime of latest reading: {time_str} {time_of_day_str[:8]} UTC", fontsize=12)
     ax.legend(handles=legend_elements, loc='upper right')
@@ -1618,14 +1626,22 @@ async def tcsst(ctx, btkID: str):
 
         plt.colorbar(c, label='Sea Surface Temperature (°C)')
 
+        # Extract closest center value 
+        lat_idx = (np.abs(lat - centerY)).argmin()
+        lon_idx = (np.abs(lon - centerX)).argmin()
+
+        # Extract the SST value at that grid point
+        sst_value = sst[lat_idx, lon_idx]
+
+
         legend_elements = [
-            Line2D([0], [0], marker='x', color='k', label=f'Storm location as of {DateTime[-1]}', markerfacecolor='#444764', markersize=10),
+            Line2D([0], [0], marker='x', color='k', label=f'SSTs over storm: {sst_value:.2f}°C', markerfacecolor='#444764', markersize=10),
             Line2D([0], [0], marker='_', color='k', label='26 degC SST Isotherm', markerfacecolor='#444764', markersize=10),
         ]
 
         plt.scatter(centerX, centerY, color='k', marker='x', zorder=10000000)
         ax.set_extent([centerX - 10, centerX + 10, centerY - 10, centerY + 10], crs=ccrs.PlateCarree())
-        plt.title(f'SST Map over {btkID.upper()} {stormName}:')
+        plt.title(f'SST Map over {btkID.upper()} {stormName} | ATCF Time: {DateTime[-1]}')
         ax.legend(handles=legend_elements, loc='upper center')
         plt.tight_layout()
         image_path = f'{btkID}_SST_Map.png'
@@ -1790,8 +1806,15 @@ async def tcsst_custom(ctx, centerY:float, centerX:float, offset=0):
 
         plt.colorbar(c, label='Sea Surface Temperature (°C)')
 
+        # Extract closest center value 
+        lat_idx = (np.abs(lat - centerY)).argmin()
+        lon_idx = (np.abs(lon - centerX)).argmin()
+
+        # Extract the SST value at that grid point
+        sst_value = sst[lat_idx, lon_idx]
+
         legend_elements = [
-            Line2D([0], [0], marker='x', color='k', label=f'Storm location', markerfacecolor='#444764', markersize=10),
+            Line2D([0], [0], marker='x', color='k', label=f'SSTs over Storm location: {sst_value:.2f}°C', markerfacecolor='#444764', markersize=10),
             Line2D([0], [0], marker='_', color='k', label='26 degC SST Isotherm', markerfacecolor='#444764', markersize=10),
         ]
 
@@ -1912,9 +1935,15 @@ async def tcsst_historical(ctx, centerY: float, centerX: float, date, offset=0):
         ax.contour(lon, lat, sst, levels=[26], colors='black', linewidths=2, transform=ccrs.PlateCarree())
 
         plt.colorbar(c, label='Sea Surface Temperature (°C)')
+        # Extract closest center value 
+        lat_idx = (np.abs(lat - centerY)).argmin()
+        lon_idx = (np.abs(lon - centerX)).argmin()
+
+        # Extract the SST value at that grid point
+        sst_value = sst[lat_idx, lon_idx]
 
         legend_elements = [
-            Line2D([0], [0], marker='x', color='k', label='Center location', markersize=10),
+            Line2D([0], [0], marker='x', color='k', label=f'SSTs over Center location: {sst_value:.2f}°C', markerfacecolor='#444764', markersize=10),
             Line2D([0], [0], marker='_', color='k', label='26 degC SST Isotherm', markersize=10),
         ]
         plt.scatter(centerX, centerY, color='k', marker='x', zorder=10000000)
