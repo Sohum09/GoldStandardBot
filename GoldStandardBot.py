@@ -5945,6 +5945,311 @@ async def weatherunion(ctx, stn_id:str):
     else:
         await ctx.send(f"Error: {response.status_code} - {response.reason}")
 
+@bot.command(name='gridsat_custom')
+async def gridsat_custom(ctx, lat:float, lon:float, hour:int, time:str, col:str):
+    import matplotlib.style as mplstyle
+    import cmap_collection
+    import xarray as xr
+    import matplotlib.pyplot as plt
+    import cartopy.crs as ccrs
+    import cartopy.feature as cfeature
+    import numpy as np
+    import requests
+    import os
+    from matplotlib.colors import ListedColormap, LinearSegmentedColormap
+    mplstyle.use("dark_background") 
+    await ctx.send('Request received, downloading data...')
+    col = col.lower()
+    time = time.split('/')
+    day, month, year = (time[0]).zfill(2), (time[1]).zfill(2), time[2]
+
+    def download_subset_nc(year, month, day, hour, lat_min, lat_max, lon_min, lon_max):
+        base_url = "https://www.ncei.noaa.gov/thredds/ncss/cdr/gridsat"
+        filename = f"GRIDSAT-B1.{year}.{str(month).zfill(2)}.{str(day).zfill(2)}.{str(hour).zfill(2)}.v02r01.nc"
+        subset_url = f"{base_url}/{year}/{filename}?var=irwin_cdr&north={lat_max}&south={lat_min}&east={lon_max}&west={lon_min}&accept=netcdf"
+        
+        response = requests.get(subset_url)
+        if response.status_code == 200:
+            with open("gridsatfile.nc", "wb") as f:
+                f.write(response.content)
+            print("Subset downloaded successfully.")
+        else:
+            print(f"Failed to download subset. Status code: {response.status_code}")
+
+    center_lat = lat # Center latitude
+    center_lon = lon   # Center longitude
+    extent = 8  # Extent in degrees
+
+    cmap_func = getattr(cmap_collection, col)
+
+    # Now call it
+    cmap, vmax, vmin = cmap_func()
+
+    destination = 'gridsatfile.nc'
+
+    # Calculate the bounds
+    lat_min, lat_max = center_lat - extent, center_lat + extent
+    lon_min, lon_max = center_lon - extent, center_lon + extent
+
+    download_subset_nc(year, month, day, hour, lat_min, lat_max, lon_min, lon_max)
+
+    await ctx.send('Data download successful, plotting values...')
+
+    # Load the NetCDF file
+    dataset = xr.open_dataset(destination, decode_times=False)
+
+    lat = dataset['lat']
+    lon = dataset['lon']
+    brightness_temp = dataset['irwin_cdr']
+
+    brightness_temp_slice = brightness_temp.isel(time=0)
+
+    # Select data within the specified bounds
+    selected_lat = lat[(lat >= lat_min) & (lat <= lat_max)]
+    selected_lon = lon[(lon >= lon_min) & (lon <= lon_max)]
+    selected_brightness_temp = brightness_temp_slice.sel(lat=slice(lat_min, lat_max), lon=slice(lon_min, lon_max))
+
+    # Select eye temperature data within the specified bounds
+    selected_eye_temp = brightness_temp_slice.sel(lat=slice(center_lat-1, center_lat+1), lon=slice(center_lon-1, center_lon+1))
+
+    selected_brightness_temp = brightness_temp_slice.sel(lat=slice(lat_min, lat_max), lon=slice(lon_min, lon_max))
+
+    def kelvin_to_celsius(kelvin_temp):
+        celsius_temp = np.array(kelvin_temp) - 273.15
+        return celsius_temp
+
+    selected_brightness_temp = kelvin_to_celsius(selected_brightness_temp.values)
+
+    # Find the maximum temperature
+    max_temp = "{:.2f}".format(np.max(selected_eye_temp.values))
+
+    def kelvin_to_celsius(kelvin_temp):
+        celsius_temp = float(kelvin_temp) - 273.15
+        return "{:.2f}".format(celsius_temp)
+
+    projection = ccrs.PlateCarree()
+
+    plt.figure(figsize=(10, 8))
+    ax = plt.axes(projection=projection)
+    pcolor = ax.pcolormesh(selected_lon, selected_lat, selected_brightness_temp, cmap=cmap, transform=projection, vmax=vmax-273.15, vmin=vmin-273.15)
+    from matplotlib import colors      
+    ax.add_feature(cfeature.COASTLINE, linewidth=1, color="c")
+    ax.add_feature(cfeature.BORDERS, color="w", linewidth=0.75)
+    #ax.add_feature(cfeature.LAND, facecolor=colors.to_rgba("c", 0.25))
+    ax.set_xlabel('Longitude (degrees_east)')
+    ax.set_ylabel('Latitude (degrees_north)')
+    ax.set_title(f'GRIDSAT B1 Brightness Temperature IR | {str(hour).zfill(2)}:00 UTC {str(day).zfill(2)}/{str(month).zfill(2)}/{year}\nCentered at ({center_lat}, {center_lon}) +/- 5 degrees | Max eye temp = {kelvin_to_celsius(max_temp)} °C')
+    gls = ax.gridlines(draw_labels=True, linewidth=0.5, linestyle='--', color='gray')
+    gls.top_labels = False
+    gls.right_labels = False
+
+    import matplotlib.ticker as ticker
+    
+    cbar = plt.colorbar(pcolor, label='Brightness Temperature (Celcius)')
+    cbar.locator = ticker.MultipleLocator(10)
+    cbar.update_ticks()
+    plt.tight_layout()
+    image_path = f'_SST_Map.png'
+    plt.savefig(image_path, format='png', bbox_inches='tight')
+    plt.close()
+
+    async def send_image(image_path):
+        with open(image_path, 'rb') as image_file:
+            image = discord.File(image_file)
+            await ctx.send(file=image)
+
+    # Send the generated image
+    await send_image(image_path)
+
+    # Remove the temporary image file
+    os.remove(image_path)
+
+    dataset.close()
+    os.remove(destination)
+
+@bot.command(name='gridsat')
+async def gridsat(ctx, btkID:str, yr:str, hour:int, time:str, col:str):
+    import matplotlib.style as mplstyle
+    import csv
+    import cmap_collection
+    import xarray as xr
+    import matplotlib.pyplot as plt
+    import cartopy.crs as ccrs
+    import cartopy.feature as cfeature
+    import numpy as np
+    import requests
+    import os
+    mplstyle.use("dark_background") 
+
+    col = col.lower()
+    time = time.split('/')
+    day, month, year = int(time[0]), int(time[1]), int(time[2])
+
+    print(f"Command received from server: {ctx.guild.name}")
+
+    btkID = btkID.upper()
+
+    if btkID == 'BENTO':
+        btkID = 'BENTOJANA'
+    duplicates = ['ALICE 1953', 'ALICE 1954', 'ANA 2021', 'BABE 1977', 'BETTY 1966', 'BETTY 1972', 'BETTY 1975',
+                  'DOREEN 1965', 'EDITH 1967', 'ELLEN 1973', 'FABIAN 1985', 'IDA 1972', 'IRMA 1978', 'IVY 1994',
+                  'JUDY 1989', 'LINDA 1997', 'MAX 1981', 'NINA 1992', 'NORMAN 2000', 'ODETTE 2021', 'PAUL 2000',
+                  'ROSE 1965', 'RUTH 1980', 'SALLY 1971', 'SARAH 1983', 'SHARON 1994', 'TIM 1994', 'WANDA 1974',
+                  'TOMAS 2010', 'VICKY 2020', 'JOYCE 2018', 'GORDON 1979', 'BENI 2003', 'MARK 1992', 'NADINE 1978',
+                  'WINNIE 1978', 'HARVEY 2005', 'FREDA 1981', 'POLLY 1971', 'LOUISE 1970', 'LUCY 1962', 'CARMEN 1974']
+    
+    check = f"{btkID} {yr}"
+    
+    if check in duplicates:
+        await ctx.send(f"Error: {check} is the name of multiple storms in this database. Consider using their ATCF IDs instead.")
+        return
+    if(btkID == 'NOT_NAMED'):
+        await ctx.send("Due to the IBTRACS database being ambiguous with this name, it cannot be used.")
+        return
+    if(btkID == 'UNNAMED'):
+        await ctx.send("Due to the IBTRACS database being ambiguous with this name, it cannot be used.")
+        return
+    
+    def _00x_to_xx00(des):
+        convert_map = {"L": "AL", "E": "EP", "C": "CP", "W":"WP", "A":"IO", "B":"IO", "S":"SH", "P":"SH"}
+        return convert_map[des[-1]] + des[:-1]
+
+    import re
+    if re.match(r"^\d{2}[A-Z]$", btkID):    
+        btkID = _00x_to_xx00(btkID)
+
+    #Load in the loops for finding the latitude and longitude...
+
+    IBTRACS_ID = f"{btkID}{yr}"
+    cdx, cdy, DateTime = 0, 0, ""
+    storm_name = ""
+    s_ID = ""
+    idl = False
+    await ctx.send("Please wait. Due to my terrible potato laptop, the dataset may take a while to go through.")
+    #Template to read the IBTRACS Data...
+    with open('ibtracs.ALL.list.v04r01.csv', mode='r') as file:
+        csvFile = csv.reader(file)
+        for line_num, lines in enumerate(csvFile, start=1):
+            if line_num > 3:
+                #Process or print the lines from the 4th line onwards
+                #If IBTRACS ID matches the ID on the script...
+                if lines[18] == IBTRACS_ID or (btkID == lines[5] and yr == lines[6][:4]):
+                    DateTime = lines[6]
+                    if int(DateTime[:4]) == year and int(DateTime[5:7]) == month and int(DateTime[8:10]) == day and int(DateTime[-8:-6]) == hour:
+                        cdy, cdx = float(lines[19]), float(lines[20])
+                        storm_name = lines[5]
+                        break
+    
+    if cdx == 0:
+        await ctx.send("Error 404: Storm not found. Please check if your entry is correct.")
+        return
+
+    await ctx.send("System located in database, downloading data...")
+
+    center_lat = cdy # Center latitude
+    center_lon = cdx # Center longitude
+    extent = 8  # Extent in degrees
+
+    cmap_func = getattr(cmap_collection, col)
+
+    # Now call it
+    cmap, vmax, vmin = cmap_func()
+
+    destination = 'gridsatfile.nc'
+
+    # Calculate the bounds
+    lat_min, lat_max = center_lat - extent, center_lat + extent
+    lon_min, lon_max = center_lon - extent, center_lon + extent
+
+    def download_subset_nc(year, month, day, hour, lat_min, lat_max, lon_min, lon_max):
+        base_url = "https://www.ncei.noaa.gov/thredds/ncss/cdr/gridsat"
+        filename = f"GRIDSAT-B1.{year}.{str(month).zfill(2)}.{str(day).zfill(2)}.{str(hour).zfill(2)}.v02r01.nc"
+        subset_url = f"{base_url}/{year}/{filename}?var=irwin_cdr&north={lat_max}&south={lat_min}&east={lon_max}&west={lon_min}&accept=netcdf"
+        
+        response = requests.get(subset_url)
+        if response.status_code == 200:
+            with open("gridsatfile.nc", "wb") as f:
+                f.write(response.content)
+            print("Subset downloaded successfully.")
+        else:
+            print(f"Failed to download subset. Status code: {response.status_code}")
+
+    download_subset_nc(year, month, day, hour, lat_min, lat_max, lon_min, lon_max)
+
+    await ctx.send('Data download successful, plotting values...')
+
+    # Load the NetCDF file
+    dataset = xr.open_dataset(destination, decode_times=False)
+
+    lat = dataset['lat']
+    lon = dataset['lon']
+    brightness_temp = dataset['irwin_cdr']
+
+    brightness_temp_slice = brightness_temp.isel(time=0)
+
+    # Select data within the specified bounds
+    selected_lat = lat[(lat >= lat_min) & (lat <= lat_max)]
+    selected_lon = lon[(lon >= lon_min) & (lon <= lon_max)]
+    selected_brightness_temp = brightness_temp_slice.sel(lat=slice(lat_min, lat_max), lon=slice(lon_min, lon_max))
+
+    # Select eye temperature data within the specified bounds
+    selected_eye_temp = brightness_temp_slice.sel(lat=slice(center_lat-1, center_lat+1), lon=slice(center_lon-1, center_lon+1))
+
+    selected_brightness_temp = brightness_temp_slice.sel(lat=slice(lat_min, lat_max), lon=slice(lon_min, lon_max))
+
+    def kelvin_to_celsius(kelvin_temp):
+        celsius_temp = np.array(kelvin_temp) - 273.15
+        return celsius_temp
+
+    selected_brightness_temp = kelvin_to_celsius(selected_brightness_temp.values)
+
+    # Find the maximum temperature
+    max_temp = "{:.2f}".format(np.max(selected_eye_temp.values))
+
+    def kelvin_to_celsius(kelvin_temp):
+        celsius_temp = float(kelvin_temp) - 273.15
+        return "{:.2f}".format(celsius_temp)
+
+    projection = ccrs.PlateCarree()
+
+    plt.figure(figsize=(10, 8))
+    ax = plt.axes(projection=projection)
+    pcolor = ax.pcolormesh(selected_lon, selected_lat, selected_brightness_temp, cmap=cmap, transform=projection, vmax=vmax-273.15, vmin=vmin-273.15)
+    
+    from matplotlib import colors      
+    ax.add_feature(cfeature.COASTLINE, linewidth=1, color="c")
+    ax.add_feature(cfeature.BORDERS, color="w", linewidth=0.75)
+    #ax.add_feature(cfeature.LAND, facecolor=colors.to_rgba("c", 0.25))
+    ax.set_xlabel('Longitude (degrees_east)')
+    ax.set_ylabel('Latitude (degrees_north)')
+    ax.set_title(f'GRIDSAT B1 Brightness Temperature IR | {str(hour).zfill(2)}:00 UTC {str(day).zfill(2)}/{str(month).zfill(2)}/{year}\nStorm: {btkID} {yr} | Max center temp = {kelvin_to_celsius(max_temp)} °C')
+    gls = ax.gridlines(draw_labels=True, linewidth=0.5, linestyle='--', color='gray')
+    gls.top_labels = False
+    gls.right_labels = False
+
+    import matplotlib.ticker as ticker
+    cbar = plt.colorbar(pcolor, label='Brightness Temperature (Celcius)')
+    cbar.locator = ticker.MultipleLocator(10)
+    cbar.update_ticks()
+
+    plt.tight_layout()
+    image_path = f'_SST_Map.png'
+    plt.savefig(image_path, format='png', bbox_inches='tight')
+    plt.close()
+
+    async def send_image(image_path):
+        with open(image_path, 'rb') as image_file:
+            image = discord.File(image_file)
+            await ctx.send(file=image)
+
+    # Send the generated image
+    await send_image(image_path)
+
+    # Remove the temporary image file
+    os.remove(image_path)
+
+    dataset.close()
+    os.remove(destination)
 
 @bot.command(name='hodoplot')
 async def hodoplot(ctx, btkID:str, yr:str, hour:int, day:int, month:int, year:int):
