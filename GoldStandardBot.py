@@ -5957,6 +5957,8 @@ async def gridsat_custom(ctx, lat:float, lon:float, hour:int, time:str, col:str)
     import requests
     import os
     from matplotlib.colors import ListedColormap, LinearSegmentedColormap
+    import matplotlib.ticker as mticker
+    from cartopy.mpl.gridliner import LONGITUDE_FORMATTER, LATITUDE_FORMATTER
     mplstyle.use("dark_background") 
     await ctx.send('Request received, downloading data...')
     col = col.lower()
@@ -5980,7 +5982,14 @@ async def gridsat_custom(ctx, lat:float, lon:float, hour:int, time:str, col:str)
     center_lon = lon   # Center longitude
     extent = 8  # Extent in degrees
 
-    cmap_func = getattr(cmap_collection, col)
+    if col == 'random':
+        import random
+        import inspect
+        functions = [func for name, func in inspect.getmembers(cmap_collection, inspect.isfunction)]
+        cmap_func = random.choice(functions)
+        await ctx.send(f"Selected function: {cmap_func.__name__}")
+    else:
+        cmap_func = getattr(cmap_collection, col)
 
     # Now call it
     cmap, vmax, vmin = cmap_func()
@@ -5989,7 +5998,64 @@ async def gridsat_custom(ctx, lat:float, lon:float, hour:int, time:str, col:str)
 
     # Calculate the bounds
     lat_min, lat_max = center_lat - extent, center_lat + extent
-    lon_min, lon_max = center_lon - extent, center_lon + extent
+    def normalize_lon(lon):
+        return ((lon + 180) % 360) - 180
+
+    lon_min = normalize_lon(center_lon - extent)
+    lon_max = normalize_lon(center_lon + extent)
+
+    idl = lon_min > lon_max
+
+
+    def download_subset_nc(year, month, day, hour, lat_min, lat_max, lon_min, lon_max):
+        base_url = "https://www.ncei.noaa.gov/thredds/ncss/cdr/gridsat"
+        filename = f"GRIDSAT-B1.{year}.{str(month).zfill(2)}.{str(day).zfill(2)}.{str(hour).zfill(2)}.v02r01.nc"
+        
+        file1 = f"gridsatfile_part1.nc"
+        file2 = f"gridsatfile_part2.nc"
+        destination = "gridsatfile.nc"
+
+        # Detect IDL crossing
+        if idl == False:
+            # Normal case
+            subset_url = f"{base_url}/{year}/{filename}?var=irwin_cdr&north={lat_max}&south={lat_min}&east={lon_max}&west={lon_min}&accept=netcdf"
+            response = requests.get(subset_url)
+            if response.status_code == 200:
+                with open(destination, "wb") as f:
+                    f.write(response.content)
+                print("Subset downloaded successfully.")
+            else:
+                print(f"Failed to download subset. Status code: {response.status_code}")
+        else:
+            # Wraparound case
+            url1 = f"{base_url}/{year}/{filename}?var=irwin_cdr&north={lat_max}&south={lat_min}&east=180&west={lon_min}&accept=netcdf"
+            url2 = f"{base_url}/{year}/{filename}?var=irwin_cdr&north={lat_max}&south={lat_min}&east={lon_max}&west=-180&accept=netcdf"
+            
+            success = True
+
+            for url, fname in zip([url1, url2], [file1, file2]):
+                res = requests.get(url)
+                if res.status_code == 200:
+                    with open(fname, "wb") as f:
+                        f.write(res.content)
+                    print(f"{fname} downloaded successfully.")
+                else:
+                    print(f"Failed to download {fname}. Status code: {res.status_code}")
+                    success = False
+            
+            if success:
+                # Merge files
+                ds1 = xr.open_dataset(file1, decode_times=False)
+                ds2 = xr.open_dataset(file2, decode_times=False)
+                merged = xr.concat([ds1, ds2], dim="lon")
+                merged.to_netcdf(destination)
+                ds1.close()
+                ds2.close()
+                os.remove(file1)
+                os.remove(file2)
+                print("Merged files across IDL successfully.")
+            else:
+                print("Data download failed for one or both segments.")
 
     download_subset_nc(year, month, day, hour, lat_min, lat_max, lon_min, lon_max)
 
@@ -6001,37 +6067,85 @@ async def gridsat_custom(ctx, lat:float, lon:float, hour:int, time:str, col:str)
     lat = dataset['lat']
     lon = dataset['lon']
     brightness_temp = dataset['irwin_cdr']
+    #print("Longitude min/max:", lon[0].values, lon[-1].values)
 
     brightness_temp_slice = brightness_temp.isel(time=0)
+    def remap_longitudes(lon_array):
+        return ((lon_array + 180) % 360) - 180
+
+    # Apply it directly to the coordinate
+    brightness_temp_slice = brightness_temp_slice.assign_coords(lon=remap_longitudes(brightness_temp_slice.lon)).sortby('lon')
+
+
+    def get_brightness_temp_subset(brightness_temp_slice, lat_min, lat_max, lon_min, lon_max):
+        if lon_min < lon_max:
+            subset = brightness_temp_slice.sel(
+                lat=slice(lat_min, lat_max),
+                lon=slice(lon_min, lon_max)
+            )
+        else:
+            # IDL wraparound
+            part1 = brightness_temp_slice.sel(
+                lat=slice(lat_min, lat_max),
+                lon=slice(lon_min, 180)
+            )
+            part2 = brightness_temp_slice.sel(
+                lat=slice(lat_min, lat_max),
+                lon=slice(-180, lon_max)
+            )
+            subset = xr.concat([part1, part2], dim="lon")
+        
+        return subset
+
 
     # Select data within the specified bounds
     selected_lat = lat[(lat >= lat_min) & (lat <= lat_max)]
-    selected_lon = lon[(lon >= lon_min) & (lon <= lon_max)]
-    selected_brightness_temp = brightness_temp_slice.sel(lat=slice(lat_min, lat_max), lon=slice(lon_min, lon_max))
-
+    if idl == False:
+        selected_lon = lon[(lon >= lon_min) & (lon <= lon_max)]
+        selected_brightness_temp = brightness_temp_slice.sel(lat=slice(lat_min, lat_max), lon=slice(lon_min, lon_max))
+    else:
+         # IDL case: wrap-around
+        selected_lon = lon[(lon >= lon_min) | (lon <= lon_max)]
+        selected_brightness_temp = get_brightness_temp_subset(brightness_temp_slice, lat_min, lat_max, lon_min, lon_max)
+    
     # Select eye temperature data within the specified bounds
     selected_eye_temp = brightness_temp_slice.sel(lat=slice(center_lat-1, center_lat+1), lon=slice(center_lon-1, center_lon+1))
-
-    selected_brightness_temp = brightness_temp_slice.sel(lat=slice(lat_min, lat_max), lon=slice(lon_min, lon_max))
 
     def kelvin_to_celsius(kelvin_temp):
         celsius_temp = np.array(kelvin_temp) - 273.15
         return celsius_temp
 
     selected_brightness_temp = kelvin_to_celsius(selected_brightness_temp.values)
-
-    # Find the maximum temperature
-    max_temp = "{:.2f}".format(np.max(selected_eye_temp.values))
+    try:
+        eye_temp = brightness_temp_slice.sel(
+            lat=center_lat,
+            lon=center_lon,
+            method="nearest"
+        )
+        max_temp = "{:.2f}".format(np.max(selected_eye_temp.values))
+    except KeyError:
+        await ctx.send("Could not locate eye temperature: storm center may be off the data grid.")
+        max_temp = "N/A"
 
     def kelvin_to_celsius(kelvin_temp):
         celsius_temp = float(kelvin_temp) - 273.15
         return "{:.2f}".format(celsius_temp)
 
-    projection = ccrs.PlateCarree()
+    if selected_brightness_temp.size == 0:
+        await ctx.send("Plotting error: No data found in selected region.")
+        return
+
+    projection = ccrs.PlateCarree() if idl == False else ccrs.PlateCarree(central_longitude=180)
 
     plt.figure(figsize=(10, 8))
     ax = plt.axes(projection=projection)
-    pcolor = ax.pcolormesh(selected_lon, selected_lat, selected_brightness_temp, cmap=cmap, transform=projection, vmax=vmax-273.15, vmin=vmin-273.15)
+    if idl:
+        selected_lon_plot = xr.where(selected_lon < 0, selected_lon + 180, selected_lon - 180)
+    else:
+        selected_lon_plot = selected_lon
+    
+    pcolor = ax.pcolormesh(selected_lon_plot, selected_lat, selected_brightness_temp, cmap=cmap, transform=projection, vmax=vmax-273.15, vmin=vmin-273.15)
+    #ax.set_extent([lon[-1], lon[0], lat[-1], lat[0]], crs=ccrs.PlateCarree())
     from matplotlib import colors      
     ax.add_feature(cfeature.COASTLINE, linewidth=1, color="c")
     ax.add_feature(cfeature.BORDERS, color="w", linewidth=0.75)
@@ -6042,12 +6156,19 @@ async def gridsat_custom(ctx, lat:float, lon:float, hour:int, time:str, col:str)
     gls = ax.gridlines(draw_labels=True, linewidth=0.5, linestyle='--', color='gray')
     gls.top_labels = False
     gls.right_labels = False
+    gls.xlocator = mticker.FixedLocator(range(-180, 181, 2))  # Control gridline spacing
+    gls.ylocator = mticker.FixedLocator(range(-90, 91, 2))
+    #gl.xformatter = LONGITUDE_FORMATTER
+    gls.yformatter = LATITUDE_FORMATTER
+    gls.xlabel_style = {'size': 8, 'color': 'w'}  # Customize label style
+    gls.ylabel_style = {'size': 8, 'color': 'w'}
+    
 
     import matplotlib.ticker as ticker
-    
     cbar = plt.colorbar(pcolor, label='Brightness Temperature (Celcius)')
     cbar.locator = ticker.MultipleLocator(10)
     cbar.update_ticks()
+
     plt.tight_layout()
     image_path = f'_SST_Map.png'
     plt.savefig(image_path, format='png', bbox_inches='tight')
@@ -6067,6 +6188,8 @@ async def gridsat_custom(ctx, lat:float, lon:float, hour:int, time:str, col:str)
     dataset.close()
     os.remove(destination)
 
+    
+
 @bot.command(name='gridsat')
 async def gridsat(ctx, btkID:str, yr:str, hour:int, time:str, col:str):
     import matplotlib.style as mplstyle
@@ -6079,6 +6202,8 @@ async def gridsat(ctx, btkID:str, yr:str, hour:int, time:str, col:str):
     import numpy as np
     import requests
     import os
+    import matplotlib.ticker as mticker
+    from cartopy.mpl.gridliner import LONGITUDE_FORMATTER, LATITUDE_FORMATTER
     mplstyle.use("dark_background") 
 
     col = col.lower()
@@ -6136,7 +6261,10 @@ async def gridsat(ctx, btkID:str, yr:str, hour:int, time:str, col:str):
                 if lines[18] == IBTRACS_ID or (btkID == lines[5] and yr == lines[6][:4]):
                     DateTime = lines[6]
                     if int(DateTime[:4]) == year and int(DateTime[5:7]) == month and int(DateTime[8:10]) == day and int(DateTime[-8:-6]) == hour:
+                        s_ID = lines[18]
                         cdy, cdx = float(lines[19]), float(lines[20])
+                        if(float(cdx) < -178 or float(cdx) > 178):
+                            idl = True
                         storm_name = lines[5]
                         break
     
@@ -6149,8 +6277,15 @@ async def gridsat(ctx, btkID:str, yr:str, hour:int, time:str, col:str):
     center_lat = cdy # Center latitude
     center_lon = cdx # Center longitude
     extent = 8  # Extent in degrees
-
-    cmap_func = getattr(cmap_collection, col)
+    #print(cdy, "", cdx)
+    if col == 'random':
+        import random
+        import inspect
+        functions = [func for name, func in inspect.getmembers(cmap_collection, inspect.isfunction)]
+        cmap_func = random.choice(functions)
+        await ctx.send(f"Selected function: {cmap_func.__name__}")
+    else:
+        cmap_func = getattr(cmap_collection, col)
 
     # Now call it
     cmap, vmax, vmin = cmap_func()
@@ -6159,20 +6294,64 @@ async def gridsat(ctx, btkID:str, yr:str, hour:int, time:str, col:str):
 
     # Calculate the bounds
     lat_min, lat_max = center_lat - extent, center_lat + extent
-    lon_min, lon_max = center_lon - extent, center_lon + extent
+    def normalize_lon(lon):
+        return ((lon + 180) % 360) - 180
+
+    lon_min = normalize_lon(center_lon - extent)
+    lon_max = normalize_lon(center_lon + extent)
+
+    idl = lon_min > lon_max
+
 
     def download_subset_nc(year, month, day, hour, lat_min, lat_max, lon_min, lon_max):
         base_url = "https://www.ncei.noaa.gov/thredds/ncss/cdr/gridsat"
         filename = f"GRIDSAT-B1.{year}.{str(month).zfill(2)}.{str(day).zfill(2)}.{str(hour).zfill(2)}.v02r01.nc"
-        subset_url = f"{base_url}/{year}/{filename}?var=irwin_cdr&north={lat_max}&south={lat_min}&east={lon_max}&west={lon_min}&accept=netcdf"
         
-        response = requests.get(subset_url)
-        if response.status_code == 200:
-            with open("gridsatfile.nc", "wb") as f:
-                f.write(response.content)
-            print("Subset downloaded successfully.")
+        file1 = f"gridsatfile_part1.nc"
+        file2 = f"gridsatfile_part2.nc"
+        destination = "gridsatfile.nc"
+
+        # Detect IDL crossing
+        if idl == False:
+            # Normal case
+            subset_url = f"{base_url}/{year}/{filename}?var=irwin_cdr&north={lat_max}&south={lat_min}&east={lon_max}&west={lon_min}&accept=netcdf"
+            response = requests.get(subset_url)
+            if response.status_code == 200:
+                with open(destination, "wb") as f:
+                    f.write(response.content)
+                print("Subset downloaded successfully.")
+            else:
+                print(f"Failed to download subset. Status code: {response.status_code}")
         else:
-            print(f"Failed to download subset. Status code: {response.status_code}")
+            # Wraparound case
+            url1 = f"{base_url}/{year}/{filename}?var=irwin_cdr&north={lat_max}&south={lat_min}&east=180&west={lon_min}&accept=netcdf"
+            url2 = f"{base_url}/{year}/{filename}?var=irwin_cdr&north={lat_max}&south={lat_min}&east={lon_max}&west=-180&accept=netcdf"
+            
+            success = True
+
+            for url, fname in zip([url1, url2], [file1, file2]):
+                res = requests.get(url)
+                if res.status_code == 200:
+                    with open(fname, "wb") as f:
+                        f.write(res.content)
+                    print(f"{fname} downloaded successfully.")
+                else:
+                    print(f"Failed to download {fname}. Status code: {res.status_code}")
+                    success = False
+            
+            if success:
+                # Merge files
+                ds1 = xr.open_dataset(file1, decode_times=False)
+                ds2 = xr.open_dataset(file2, decode_times=False)
+                merged = xr.concat([ds1, ds2], dim="lon")
+                merged.to_netcdf(destination)
+                ds1.close()
+                ds2.close()
+                os.remove(file1)
+                os.remove(file2)
+                print("Merged files across IDL successfully.")
+            else:
+                print("Data download failed for one or both segments.")
 
     download_subset_nc(year, month, day, hour, lat_min, lat_max, lon_min, lon_max)
 
@@ -6184,48 +6363,102 @@ async def gridsat(ctx, btkID:str, yr:str, hour:int, time:str, col:str):
     lat = dataset['lat']
     lon = dataset['lon']
     brightness_temp = dataset['irwin_cdr']
+    #print("Longitude min/max:", lon[0].values, lon[-1].values)
 
     brightness_temp_slice = brightness_temp.isel(time=0)
+    def remap_longitudes(lon_array):
+        return ((lon_array + 180) % 360) - 180
+
+    # Apply it directly to the coordinate
+    brightness_temp_slice = brightness_temp_slice.assign_coords(lon=remap_longitudes(brightness_temp_slice.lon)).sortby('lon')
+
+
+    def get_brightness_temp_subset(brightness_temp_slice, lat_min, lat_max, lon_min, lon_max):
+        if lon_min < lon_max:
+            subset = brightness_temp_slice.sel(
+                lat=slice(lat_min, lat_max),
+                lon=slice(lon_min, lon_max)
+            )
+        else:
+            # IDL wraparound
+            part1 = brightness_temp_slice.sel(
+                lat=slice(lat_min, lat_max),
+                lon=slice(lon_min, 180)
+            )
+            part2 = brightness_temp_slice.sel(
+                lat=slice(lat_min, lat_max),
+                lon=slice(-180, lon_max)
+            )
+            subset = xr.concat([part1, part2], dim="lon")
+        
+        return subset
+
 
     # Select data within the specified bounds
     selected_lat = lat[(lat >= lat_min) & (lat <= lat_max)]
-    selected_lon = lon[(lon >= lon_min) & (lon <= lon_max)]
-    selected_brightness_temp = brightness_temp_slice.sel(lat=slice(lat_min, lat_max), lon=slice(lon_min, lon_max))
-
+    if idl == False:
+        selected_lon = lon[(lon >= lon_min) & (lon <= lon_max)]
+        selected_brightness_temp = brightness_temp_slice.sel(lat=slice(lat_min, lat_max), lon=slice(lon_min, lon_max))
+    else:
+         # IDL case: wrap-around
+        selected_lon = lon[(lon >= lon_min) | (lon <= lon_max)]
+        selected_brightness_temp = get_brightness_temp_subset(brightness_temp_slice, lat_min, lat_max, lon_min, lon_max)
+    
     # Select eye temperature data within the specified bounds
     selected_eye_temp = brightness_temp_slice.sel(lat=slice(center_lat-1, center_lat+1), lon=slice(center_lon-1, center_lon+1))
-
-    selected_brightness_temp = brightness_temp_slice.sel(lat=slice(lat_min, lat_max), lon=slice(lon_min, lon_max))
 
     def kelvin_to_celsius(kelvin_temp):
         celsius_temp = np.array(kelvin_temp) - 273.15
         return celsius_temp
 
     selected_brightness_temp = kelvin_to_celsius(selected_brightness_temp.values)
-
-    # Find the maximum temperature
-    max_temp = "{:.2f}".format(np.max(selected_eye_temp.values))
+    try:
+        eye_temp = brightness_temp_slice.sel(
+            lat=center_lat,
+            lon=center_lon,
+            method="nearest"
+        )
+        max_temp = "{:.2f}".format(np.max(selected_eye_temp.values))
+    except KeyError:
+        await ctx.send("Could not locate eye temperature: storm center may be off the data grid.")
+        max_temp = "N/A"
 
     def kelvin_to_celsius(kelvin_temp):
         celsius_temp = float(kelvin_temp) - 273.15
         return "{:.2f}".format(celsius_temp)
 
-    projection = ccrs.PlateCarree()
+    if selected_brightness_temp.size == 0:
+        await ctx.send("Plotting error: No data found in selected region.")
+        return
+
+    projection = ccrs.PlateCarree() if idl == False else ccrs.PlateCarree(central_longitude=180)
 
     plt.figure(figsize=(10, 8))
     ax = plt.axes(projection=projection)
-    pcolor = ax.pcolormesh(selected_lon, selected_lat, selected_brightness_temp, cmap=cmap, transform=projection, vmax=vmax-273.15, vmin=vmin-273.15)
+    if idl:
+        selected_lon_plot = xr.where(selected_lon < 0, selected_lon + 180, selected_lon - 180)
+    else:
+        selected_lon_plot = selected_lon
     
+    pcolor = ax.pcolormesh(selected_lon_plot, selected_lat, selected_brightness_temp, cmap=cmap, transform=projection, vmax=vmax-273.15, vmin=vmin-273.15)
+    #ax.set_extent([lon[-1], lon[0], lat[-1], lat[0]], crs=ccrs.PlateCarree())
     from matplotlib import colors      
     ax.add_feature(cfeature.COASTLINE, linewidth=1, color="c")
     ax.add_feature(cfeature.BORDERS, color="w", linewidth=0.75)
     #ax.add_feature(cfeature.LAND, facecolor=colors.to_rgba("c", 0.25))
     ax.set_xlabel('Longitude (degrees_east)')
     ax.set_ylabel('Latitude (degrees_north)')
-    ax.set_title(f'GRIDSAT B1 Brightness Temperature IR | {str(hour).zfill(2)}:00 UTC {str(day).zfill(2)}/{str(month).zfill(2)}/{year}\nStorm: {btkID} {yr} | Max center temp = {kelvin_to_celsius(max_temp)} °C')
+    ax.set_title(f'GRIDSAT B1 Brightness Temperature IR | {str(hour).zfill(2)}:00 UTC {str(day).zfill(2)}/{str(month).zfill(2)}/{year}\n{s_ID} {storm_name} | Max center temp = {kelvin_to_celsius(max_temp)} °C')
     gls = ax.gridlines(draw_labels=True, linewidth=0.5, linestyle='--', color='gray')
     gls.top_labels = False
     gls.right_labels = False
+    gls.xlocator = mticker.FixedLocator(range(-180, 181, 2))  # Control gridline spacing
+    gls.ylocator = mticker.FixedLocator(range(-90, 91, 2))
+    #gl.xformatter = LONGITUDE_FORMATTER
+    gls.yformatter = LATITUDE_FORMATTER
+    gls.xlabel_style = {'size': 8, 'color': 'w'}  # Customize label style
+    gls.ylabel_style = {'size': 8, 'color': 'w'}
+    
 
     import matplotlib.ticker as ticker
     cbar = plt.colorbar(pcolor, label='Brightness Temperature (Celcius)')
