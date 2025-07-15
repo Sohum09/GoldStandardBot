@@ -5946,7 +5946,7 @@ async def weatherunion(ctx, stn_id:str):
         await ctx.send(f"Error: {response.status_code} - {response.reason}")
 
 @bot.command(name='gridsat_custom')
-async def gridsat_custom(ctx, lat:float, lon:float, hour:int, time:str, col:str):
+async def gridsat_custom(ctx, lat:float, lon:float, hour:int, time:str, col:str, override = ''):
     import matplotlib.style as mplstyle
     import cmap_collection
     import xarray as xr
@@ -5965,23 +5965,10 @@ async def gridsat_custom(ctx, lat:float, lon:float, hour:int, time:str, col:str)
     time = time.split('/')
     day, month, year = (time[0]).zfill(2), (time[1]).zfill(2), time[2]
 
-    def download_subset_nc(year, month, day, hour, lat_min, lat_max, lon_min, lon_max):
-        base_url = "https://www.ncei.noaa.gov/thredds/ncss/cdr/gridsat"
-        filename = f"GRIDSAT-B1.{year}.{str(month).zfill(2)}.{str(day).zfill(2)}.{str(hour).zfill(2)}.v02r01.nc"
-        subset_url = f"{base_url}/{year}/{filename}?var=irwin_cdr&north={lat_max}&south={lat_min}&east={lon_max}&west={lon_min}&accept=netcdf"
-        
-        response = requests.get(subset_url)
-        if response.status_code == 200:
-            with open("gridsatfile.nc", "wb") as f:
-                f.write(response.content)
-            print("Subset downloaded successfully.")
-        else:
-            print(f"Failed to download subset. Status code: {response.status_code}")
-
     center_lat = lat # Center latitude
-    center_lon = lon   # Center longitude
+    center_lon = lon # Center longitude
     extent = 8  # Extent in degrees
-
+    #print(cdy, "", cdx)
     if col == 'random':
         import random
         import inspect
@@ -6006,56 +5993,133 @@ async def gridsat_custom(ctx, lat:float, lon:float, hour:int, time:str, col:str)
 
     idl = lon_min > lon_max
 
+    from datetime import datetime
+
+    def get_satellite(year, month, day, cdx):
+        date = datetime(year, month, day)
+
+        if (cdx > -105 and cdx < -5) or override == '1':
+            if datetime(1994, 8, 31) <= date <= datetime(2003, 4, 1):
+                return "goes08"
+            elif datetime(2003, 4, 2) <= date <= datetime(2010, 4, 14):
+                return "goes12"
+            elif datetime(2010, 4, 15) <= date <= datetime(2017, 12, 31):
+                return "goes13"
+        elif cdx < 180 and cdx > 120:
+            if datetime(2003, 4, 23) <= date <= datetime(2005, 11, 17):
+                return "goes09"
+        else:
+            if datetime(1995, 8, 31) <= date <= datetime(1998, 7, 21):
+                return "goes09"
+            elif datetime(1998, 7, 22) <= date <= datetime(2006, 6, 21):
+                return "goes10"
+            elif datetime(2006, 6, 22) <= date <= datetime(2011, 12, 6):
+                return "goes11"
+            elif datetime(2011, 12, 6) <= date <= datetime(2017, 11, 29):
+                return "goes15"
+
+        return "unknown"
+
+    satellite = ''
+    if center_lon >= 150 or center_lon <= -5: 
+        satellite = get_satellite(int(year), int(month), int(day), lon)
+    else:
+        satellite = 'unknown'
 
     def download_subset_nc(year, month, day, hour, lat_min, lat_max, lon_min, lon_max):
-        base_url = "https://www.ncei.noaa.gov/thredds/ncss/cdr/gridsat"
-        filename = f"GRIDSAT-B1.{year}.{str(month).zfill(2)}.{str(day).zfill(2)}.{str(hour).zfill(2)}.v02r01.nc"
-        
         file1 = f"gridsatfile_part1.nc"
         file2 = f"gridsatfile_part2.nc"
         destination = "gridsatfile.nc"
-
-        # Detect IDL crossing
-        if idl == False:
-            # Normal case
-            subset_url = f"{base_url}/{year}/{filename}?var=irwin_cdr&north={lat_max}&south={lat_min}&east={lon_max}&west={lon_min}&accept=netcdf"
-            response = requests.get(subset_url)
-            if response.status_code == 200:
-                with open(destination, "wb") as f:
-                    f.write(response.content)
-                print("Subset downloaded successfully.")
-            else:
-                print(f"Failed to download subset. Status code: {response.status_code}")
-        else:
-            # Wraparound case
-            url1 = f"{base_url}/{year}/{filename}?var=irwin_cdr&north={lat_max}&south={lat_min}&east=180&west={lon_min}&accept=netcdf"
-            url2 = f"{base_url}/{year}/{filename}?var=irwin_cdr&north={lat_max}&south={lat_min}&east={lon_max}&west=-180&accept=netcdf"
+        if satellite == 'unknown':
+            base_url = "https://www.ncei.noaa.gov/thredds/ncss/cdr/gridsat"
+            filename = f"GRIDSAT-B1.{year}.{str(month).zfill(2)}.{str(day).zfill(2)}.{str(hour).zfill(2)}.v02r01.nc"
             
-            success = True
-
-            for url, fname in zip([url1, url2], [file1, file2]):
-                res = requests.get(url)
-                if res.status_code == 200:
-                    with open(fname, "wb") as f:
-                        f.write(res.content)
-                    print(f"{fname} downloaded successfully.")
+            file1 = f"gridsatfile_part1.nc"
+            file2 = f"gridsatfile_part2.nc"
+            destination = "gridsatfile.nc"
+            # Detect IDL crossing
+            if idl == False:
+                # Normal case
+                subset_url = f"{base_url}/{year}/{filename}?var=irwin_cdr&north={lat_max}&south={lat_min}&east={lon_max}&west={lon_min}&accept=netcdf"
+                response = requests.get(subset_url)
+                if response.status_code == 200:
+                    with open(destination, "wb") as f:
+                        f.write(response.content)
+                    print("Subset downloaded successfully.")
                 else:
-                    print(f"Failed to download {fname}. Status code: {res.status_code}")
-                    success = False
-            
-            if success:
-                # Merge files
-                ds1 = xr.open_dataset(file1, decode_times=False)
-                ds2 = xr.open_dataset(file2, decode_times=False)
-                merged = xr.concat([ds1, ds2], dim="lon")
-                merged.to_netcdf(destination)
-                ds1.close()
-                ds2.close()
-                os.remove(file1)
-                os.remove(file2)
-                print("Merged files across IDL successfully.")
+                    print(f"Failed to download subset. Status code: {response.status_code}")
             else:
-                print("Data download failed for one or both segments.")
+                # Wraparound case
+                url1 = f"{base_url}/{year}/{filename}?var=irwin_cdr&north={lat_max}&south={lat_min}&east=180&west={lon_min}&accept=netcdf"
+                url2 = f"{base_url}/{year}/{filename}?var=irwin_cdr&north={lat_max}&south={lat_min}&east={lon_max}&west=-180&accept=netcdf"
+                
+                success = True
+
+                for url, fname in zip([url1, url2], [file1, file2]):
+                    res = requests.get(url)
+                    if res.status_code == 200:
+                        with open(fname, "wb") as f:
+                            f.write(res.content)
+                        print(f"{fname} downloaded successfully.")
+                    else:
+                        print(f"Failed to download {fname}. Status code: {res.status_code}")
+                        success = False
+                
+                if success:
+                    # Merge files
+                    ds1 = xr.open_dataset(file1, decode_times=False)
+                    ds2 = xr.open_dataset(file2, decode_times=False)
+                    merged = xr.concat([ds1, ds2], dim="lon")
+                    merged.to_netcdf(destination)
+                    ds1.close()
+                    ds2.close()
+                    os.remove(file1)
+                    os.remove(file2)
+                    print("Merged files across IDL successfully.")
+                else:
+                    print("Data download failed for one or both segments.")
+        else:
+            base_url = "https://www.ncei.noaa.gov/thredds/ncss/satellite/gridsat-goes-full-disk"
+            filename = f"GridSat-GOES.{satellite}.{year}.{str(month).zfill(2)}.{str(day).zfill(2)}.{str(hour).zfill(2)}00.v01.nc"
+            
+            if idl == False:
+                subset_url = f"{base_url}/{year}/{str(month).zfill(2)}/{filename}?var=ch4&maxy={lat_max}&miny={lat_min}&maxx={lon_max}&minx={lon_min}&accept=netcdf"  
+                response = requests.get(subset_url)
+                if response.status_code == 200:
+                    with open("gridsatfile.nc", "wb") as f:
+                        f.write(response.content)
+                    print("Subset downloaded successfully.")
+                else:
+                    print(f"Failed to download subset. Status code: {response.status_code}")
+            else:
+                url1 = f"{base_url}/{year}/{str(month).zfill(2)}/{filename}?var=ch4&maxy={lat_max}&miny={lat_min}&maxx={((lon_min + 180) % 360) - 180}&minx=-180&accept=netcdf"
+                url2 = f"{base_url}/{year}/{str(month).zfill(2)}/{filename}?var=ch4&maxy={lat_max}&miny={lat_min}&maxx={lon_max}&minx=-180&accept=netcdf"
+                
+                success = True
+
+                for url, fname in zip([url1, url2], [file1, file2]):
+                    res = requests.get(url)
+                    if res.status_code == 200:
+                        with open(fname, "wb") as f:
+                            f.write(res.content)
+                        print(f"{fname} downloaded successfully.")
+                    else:
+                        print(f"Failed to download {fname}. Status code: {res.status_code}")
+                        success = False
+                
+                if success:
+                    # Merge files
+                    ds1 = xr.open_dataset(file1, decode_times=False)
+                    ds2 = xr.open_dataset(file2, decode_times=False)
+                    merged = xr.concat([ds1, ds2], dim="lon")
+                    merged.to_netcdf(destination)
+                    ds1.close()
+                    ds2.close()
+                    os.remove(file1)
+                    os.remove(file2)
+                    print("Merged files across IDL successfully.")
+                else:
+                    print("Data download failed for one or both segments.")
 
     download_subset_nc(year, month, day, hour, lat_min, lat_max, lon_min, lon_max)
 
@@ -6066,19 +6130,19 @@ async def gridsat_custom(ctx, lat:float, lon:float, hour:int, time:str, col:str)
 
     lat = dataset['lat']
     lon = dataset['lon']
-    brightness_temp = dataset['irwin_cdr']
+    brightness_temp = dataset['irwin_cdr'] if satellite == 'unknown' else dataset['ch4']
     #print("Longitude min/max:", lon[0].values, lon[-1].values)
 
     brightness_temp_slice = brightness_temp.isel(time=0)
-    def remap_longitudes(lon_array):
-        return ((lon_array + 180) % 360) - 180
+    if idl == True:
+        def remap_longitudes(lon_array):
+            return ((lon_array + 180) % 360) - 180
 
-    # Apply it directly to the coordinate
-    brightness_temp_slice = brightness_temp_slice.assign_coords(lon=remap_longitudes(brightness_temp_slice.lon)).sortby('lon')
-
+        # Apply it directly to the coordinate
+        brightness_temp_slice = brightness_temp_slice.assign_coords(lon=remap_longitudes(brightness_temp_slice.lon)).sortby('lon')
 
     def get_brightness_temp_subset(brightness_temp_slice, lat_min, lat_max, lon_min, lon_max):
-        if lon_min < lon_max:
+        if idl == False:
             subset = brightness_temp_slice.sel(
                 lat=slice(lat_min, lat_max),
                 lon=slice(lon_min, lon_max)
@@ -6096,7 +6160,6 @@ async def gridsat_custom(ctx, lat:float, lon:float, hour:int, time:str, col:str)
             subset = xr.concat([part1, part2], dim="lon")
         
         return subset
-
 
     # Select data within the specified bounds
     selected_lat = lat[(lat >= lat_min) & (lat <= lat_max)]
@@ -6152,7 +6215,11 @@ async def gridsat_custom(ctx, lat:float, lon:float, hour:int, time:str, col:str)
     #ax.add_feature(cfeature.LAND, facecolor=colors.to_rgba("c", 0.25))
     ax.set_xlabel('Longitude (degrees_east)')
     ax.set_ylabel('Latitude (degrees_north)')
-    ax.set_title(f'GRIDSAT B1 Brightness Temperature IR | {str(hour).zfill(2)}:00 UTC {str(day).zfill(2)}/{str(month).zfill(2)}/{year}\nCentered at ({center_lat}, {center_lon}) +/- 5 degrees | Max eye temp = {kelvin_to_celsius(max_temp)} °C')
+    
+    if satellite != 'unknown':
+        ax.set_title(f'GRIDSAT-GOES Channel 4 Brightness Temperature IR | {str(hour).zfill(2)}:00 UTC {str(day).zfill(2)}/{str(month).zfill(2)}/{year}\n({center_lat}, {center_lon}) | {satellite[:-2].upper()}-{satellite[-2:]} | Max center temp = {kelvin_to_celsius(max_temp)} °C')
+    else:
+        ax.set_title(f'GRIDSAT B1 Brightness Temperature IR | {str(hour).zfill(2)}:00 UTC {str(day).zfill(2)}/{str(month).zfill(2)}/{year}\n({center_lat}, {center_lon}) | Max center temp = {kelvin_to_celsius(max_temp)} °C')
     gls = ax.gridlines(draw_labels=True, linewidth=0.5, linestyle='--', color='gray')
     gls.top_labels = False
     gls.right_labels = False
@@ -6191,7 +6258,7 @@ async def gridsat_custom(ctx, lat:float, lon:float, hour:int, time:str, col:str)
     
 
 @bot.command(name='gridsat')
-async def gridsat(ctx, btkID:str, yr:str, hour:int, time:str, col:str):
+async def gridsat(ctx, btkID:str, yr:str, hour:int, time:str, col:str, override = ''):
     import matplotlib.style as mplstyle
     import csv
     import cmap_collection
@@ -6250,6 +6317,7 @@ async def gridsat(ctx, btkID:str, yr:str, hour:int, time:str, col:str):
     storm_name = ""
     s_ID = ""
     idl = False
+    basin = ''
     await ctx.send("Please wait. Due to my terrible potato laptop, the dataset may take a while to go through.")
     #Template to read the IBTRACS Data...
     with open('ibtracs.ALL.list.v04r01.csv', mode='r') as file:
@@ -6260,6 +6328,7 @@ async def gridsat(ctx, btkID:str, yr:str, hour:int, time:str, col:str):
                 #If IBTRACS ID matches the ID on the script...
                 if lines[18] == IBTRACS_ID or (btkID == lines[5] and yr == lines[6][:4]):
                     DateTime = lines[6]
+                    basin = lines[3]
                     if int(DateTime[:4]) == year and int(DateTime[5:7]) == month and int(DateTime[8:10]) == day and int(DateTime[-8:-6]) == hour:
                         s_ID = lines[18]
                         cdy, cdx = float(lines[19]), float(lines[20])
@@ -6302,56 +6371,133 @@ async def gridsat(ctx, btkID:str, yr:str, hour:int, time:str, col:str):
 
     idl = lon_min > lon_max
 
+    from datetime import datetime
+
+    def get_satellite(basin, year, month, day, cdx):
+        date = datetime(year, month, day)
+
+        if cdx > -105 and cdx < -5 or override == '1':
+            if datetime(1994, 8, 31) <= date <= datetime(2003, 4, 1):
+                return "goes08"
+            elif datetime(2003, 4, 2) <= date <= datetime(2010, 4, 14):
+                return "goes12"
+            elif datetime(2010, 4, 15) <= date <= datetime(2017, 12, 31):
+                return "goes13"
+        elif cdx < 180 and cdx > 120:
+            if datetime(2003, 4, 23) <= date <= datetime(2005, 11, 17):
+                return "goes09"
+        else:
+            if datetime(1995, 8, 31) <= date <= datetime(1998, 7, 21):
+                return "goes09"
+            elif datetime(1998, 7, 22) <= date <= datetime(2006, 6, 21):
+                return "goes10"
+            elif datetime(2006, 6, 22) <= date <= datetime(2011, 12, 6):
+                return "goes11"
+            elif datetime(2011, 12, 6) <= date <= datetime(2017, 11, 29):
+                return "goes15"
+
+        return "unknown"
+
+    satellite = ''
+    if cdx >= 150 or cdx <= -5: 
+        satellite = get_satellite(basin, year, month, day, cdx)
+    else:
+        satellite = 'unknown'
 
     def download_subset_nc(year, month, day, hour, lat_min, lat_max, lon_min, lon_max):
-        base_url = "https://www.ncei.noaa.gov/thredds/ncss/cdr/gridsat"
-        filename = f"GRIDSAT-B1.{year}.{str(month).zfill(2)}.{str(day).zfill(2)}.{str(hour).zfill(2)}.v02r01.nc"
-        
         file1 = f"gridsatfile_part1.nc"
         file2 = f"gridsatfile_part2.nc"
         destination = "gridsatfile.nc"
-
-        # Detect IDL crossing
-        if idl == False:
-            # Normal case
-            subset_url = f"{base_url}/{year}/{filename}?var=irwin_cdr&north={lat_max}&south={lat_min}&east={lon_max}&west={lon_min}&accept=netcdf"
-            response = requests.get(subset_url)
-            if response.status_code == 200:
-                with open(destination, "wb") as f:
-                    f.write(response.content)
-                print("Subset downloaded successfully.")
-            else:
-                print(f"Failed to download subset. Status code: {response.status_code}")
-        else:
-            # Wraparound case
-            url1 = f"{base_url}/{year}/{filename}?var=irwin_cdr&north={lat_max}&south={lat_min}&east=180&west={lon_min}&accept=netcdf"
-            url2 = f"{base_url}/{year}/{filename}?var=irwin_cdr&north={lat_max}&south={lat_min}&east={lon_max}&west=-180&accept=netcdf"
+        if satellite == 'unknown':
+            base_url = "https://www.ncei.noaa.gov/thredds/ncss/cdr/gridsat"
+            filename = f"GRIDSAT-B1.{year}.{str(month).zfill(2)}.{str(day).zfill(2)}.{str(hour).zfill(2)}.v02r01.nc"
             
-            success = True
-
-            for url, fname in zip([url1, url2], [file1, file2]):
-                res = requests.get(url)
-                if res.status_code == 200:
-                    with open(fname, "wb") as f:
-                        f.write(res.content)
-                    print(f"{fname} downloaded successfully.")
+            file1 = f"gridsatfile_part1.nc"
+            file2 = f"gridsatfile_part2.nc"
+            destination = "gridsatfile.nc"
+            # Detect IDL crossing
+            if idl == False:
+                # Normal case
+                subset_url = f"{base_url}/{year}/{filename}?var=irwin_cdr&north={lat_max}&south={lat_min}&east={lon_max}&west={lon_min}&accept=netcdf"
+                response = requests.get(subset_url)
+                if response.status_code == 200:
+                    with open(destination, "wb") as f:
+                        f.write(response.content)
+                    print("Subset downloaded successfully.")
                 else:
-                    print(f"Failed to download {fname}. Status code: {res.status_code}")
-                    success = False
-            
-            if success:
-                # Merge files
-                ds1 = xr.open_dataset(file1, decode_times=False)
-                ds2 = xr.open_dataset(file2, decode_times=False)
-                merged = xr.concat([ds1, ds2], dim="lon")
-                merged.to_netcdf(destination)
-                ds1.close()
-                ds2.close()
-                os.remove(file1)
-                os.remove(file2)
-                print("Merged files across IDL successfully.")
+                    print(f"Failed to download subset. Status code: {response.status_code}")
             else:
-                print("Data download failed for one or both segments.")
+                # Wraparound case
+                url1 = f"{base_url}/{year}/{filename}?var=irwin_cdr&north={lat_max}&south={lat_min}&east=180&west={lon_min}&accept=netcdf"
+                url2 = f"{base_url}/{year}/{filename}?var=irwin_cdr&north={lat_max}&south={lat_min}&east={lon_max}&west=-180&accept=netcdf"
+                
+                success = True
+
+                for url, fname in zip([url1, url2], [file1, file2]):
+                    res = requests.get(url)
+                    if res.status_code == 200:
+                        with open(fname, "wb") as f:
+                            f.write(res.content)
+                        print(f"{fname} downloaded successfully.")
+                    else:
+                        print(f"Failed to download {fname}. Status code: {res.status_code}")
+                        success = False
+                
+                if success:
+                    # Merge files
+                    ds1 = xr.open_dataset(file1, decode_times=False)
+                    ds2 = xr.open_dataset(file2, decode_times=False)
+                    merged = xr.concat([ds1, ds2], dim="lon")
+                    merged.to_netcdf(destination)
+                    ds1.close()
+                    ds2.close()
+                    os.remove(file1)
+                    os.remove(file2)
+                    print("Merged files across IDL successfully.")
+                else:
+                    print("Data download failed for one or both segments.")
+        else:
+            base_url = "https://www.ncei.noaa.gov/thredds/ncss/satellite/gridsat-goes-full-disk"
+            filename = f"GridSat-GOES.{satellite}.{year}.{str(month).zfill(2)}.{str(day).zfill(2)}.{str(hour).zfill(2)}00.v01.nc"
+            
+            if idl == False:
+                subset_url = f"{base_url}/{year}/{str(month).zfill(2)}/{filename}?var=ch4&maxy={lat_max}&miny={lat_min}&maxx={lon_max}&minx={lon_min}&accept=netcdf"  
+                response = requests.get(subset_url)
+                if response.status_code == 200:
+                    with open("gridsatfile.nc", "wb") as f:
+                        f.write(response.content)
+                    print("Subset downloaded successfully.")
+                else:
+                    print(f"Failed to download subset. Status code: {response.status_code}")
+            else:
+                url1 = f"{base_url}/{year}/{str(month).zfill(2)}/{filename}?var=ch4&maxy={lat_max}&miny={lat_min}&maxx={((lon_min + 180) % 360) - 180}&minx=-180&accept=netcdf"
+                url2 = f"{base_url}/{year}/{str(month).zfill(2)}/{filename}?var=ch4&maxy={lat_max}&miny={lat_min}&maxx={lon_max}&minx=-180&accept=netcdf"
+                
+                success = True
+
+                for url, fname in zip([url1, url2], [file1, file2]):
+                    res = requests.get(url)
+                    if res.status_code == 200:
+                        with open(fname, "wb") as f:
+                            f.write(res.content)
+                        print(f"{fname} downloaded successfully.")
+                    else:
+                        print(f"Failed to download {fname}. Status code: {res.status_code}")
+                        success = False
+                
+                if success:
+                    # Merge files
+                    ds1 = xr.open_dataset(file1, decode_times=False)
+                    ds2 = xr.open_dataset(file2, decode_times=False)
+                    merged = xr.concat([ds1, ds2], dim="lon")
+                    merged.to_netcdf(destination)
+                    ds1.close()
+                    ds2.close()
+                    os.remove(file1)
+                    os.remove(file2)
+                    print("Merged files across IDL successfully.")
+                else:
+                    print("Data download failed for one or both segments.")
 
     download_subset_nc(year, month, day, hour, lat_min, lat_max, lon_min, lon_max)
 
@@ -6362,19 +6508,19 @@ async def gridsat(ctx, btkID:str, yr:str, hour:int, time:str, col:str):
 
     lat = dataset['lat']
     lon = dataset['lon']
-    brightness_temp = dataset['irwin_cdr']
+    brightness_temp = dataset['irwin_cdr'] if satellite == 'unknown' else dataset['ch4']
     #print("Longitude min/max:", lon[0].values, lon[-1].values)
 
     brightness_temp_slice = brightness_temp.isel(time=0)
-    def remap_longitudes(lon_array):
-        return ((lon_array + 180) % 360) - 180
+    if idl == True:
+        def remap_longitudes(lon_array):
+            return ((lon_array + 180) % 360) - 180
 
-    # Apply it directly to the coordinate
-    brightness_temp_slice = brightness_temp_slice.assign_coords(lon=remap_longitudes(brightness_temp_slice.lon)).sortby('lon')
-
+        # Apply it directly to the coordinate
+        brightness_temp_slice = brightness_temp_slice.assign_coords(lon=remap_longitudes(brightness_temp_slice.lon)).sortby('lon')
 
     def get_brightness_temp_subset(brightness_temp_slice, lat_min, lat_max, lon_min, lon_max):
-        if lon_min < lon_max:
+        if idl == False:
             subset = brightness_temp_slice.sel(
                 lat=slice(lat_min, lat_max),
                 lon=slice(lon_min, lon_max)
@@ -6392,7 +6538,6 @@ async def gridsat(ctx, btkID:str, yr:str, hour:int, time:str, col:str):
             subset = xr.concat([part1, part2], dim="lon")
         
         return subset
-
 
     # Select data within the specified bounds
     selected_lat = lat[(lat >= lat_min) & (lat <= lat_max)]
@@ -6448,7 +6593,11 @@ async def gridsat(ctx, btkID:str, yr:str, hour:int, time:str, col:str):
     #ax.add_feature(cfeature.LAND, facecolor=colors.to_rgba("c", 0.25))
     ax.set_xlabel('Longitude (degrees_east)')
     ax.set_ylabel('Latitude (degrees_north)')
-    ax.set_title(f'GRIDSAT B1 Brightness Temperature IR | {str(hour).zfill(2)}:00 UTC {str(day).zfill(2)}/{str(month).zfill(2)}/{year}\n{s_ID} {storm_name} | Max center temp = {kelvin_to_celsius(max_temp)} °C')
+    
+    if satellite != 'unknown':
+        ax.set_title(f'GRIDSAT-GOES Channel 4 Brightness Temperature IR | {str(hour).zfill(2)}:00 UTC {str(day).zfill(2)}/{str(month).zfill(2)}/{year}\n{s_ID} {storm_name} | {satellite[:-2].upper()}-{satellite[-2:]} | Max center temp = {kelvin_to_celsius(max_temp)} °C')
+    else:
+        ax.set_title(f'GRIDSAT B1 Brightness Temperature IR | {str(hour).zfill(2)}:00 UTC {str(day).zfill(2)}/{str(month).zfill(2)}/{year}\n{s_ID} {storm_name} | Max center temp = {kelvin_to_celsius(max_temp)} °C')
     gls = ax.gridlines(draw_labels=True, linewidth=0.5, linestyle='--', color='gray')
     gls.top_labels = False
     gls.right_labels = False
