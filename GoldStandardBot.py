@@ -5796,6 +5796,263 @@ async def mcfetch(ctx, satellite:str, band:str, latitude:float, longitude:float,
         await ctx.send("Error 404: The image either does not exist or is yet to be created.")
         await ctx.send("For a list of available satellites, go to this link: https://inventory.ssec.wisc.edu/inventory/#calendar")
 
+@bot.command('mcfetch_nc')
+async def mcfetch_nc(ctx, btkID, yr, hour, date, col:str):
+    import matplotlib.style as mplstyle
+    import cmap_collection
+    import csv
+    import xarray as xr
+    import matplotlib.pyplot as plt
+    import cartopy.crs as ccrs
+    import cartopy.feature as cfeature
+    import numpy as np
+    import requests
+    import os
+    from io import BytesIO
+    from matplotlib.colors import ListedColormap, LinearSegmentedColormap
+    import matplotlib.ticker as mticker
+    from cartopy.mpl.gridliner import LONGITUDE_FORMATTER, LATITUDE_FORMATTER
+    from datetime import datetime
+    mplstyle.use("dark_background") 
+    
+    col = col.lower()
+    date = date.split('/')
+    day, month, year = int(date[0]), int(date[1]), int(date[2])
+
+    print(f"Command received from server: {ctx.guild.name}")
+
+    btkID = btkID.upper()
+
+    if btkID == 'BENTO':
+        btkID = 'BENTOJANA'
+    duplicates = ['ALICE 1953', 'ALICE 1954', 'ANA 2021', 'BABE 1977', 'BETTY 1966', 'BETTY 1972', 'BETTY 1975',
+                  'DOREEN 1965', 'EDITH 1967', 'ELLEN 1973', 'FABIAN 1985', 'IDA 1972', 'IRMA 1978', 'IVY 1994',
+                  'JUDY 1989', 'LINDA 1997', 'MAX 1981', 'NINA 1992', 'NORMAN 2000', 'ODETTE 2021', 'PAUL 2000',
+                  'ROSE 1965', 'RUTH 1980', 'SALLY 1971', 'SARAH 1983', 'SHARON 1994', 'TIM 1994', 'WANDA 1974',
+                  'TOMAS 2010', 'VICKY 2020', 'JOYCE 2018', 'GORDON 1979', 'BENI 2003', 'MARK 1992', 'NADINE 1978',
+                  'WINNIE 1978', 'HARVEY 2005', 'FREDA 1981', 'POLLY 1971', 'LOUISE 1970', 'LUCY 1962', 'CARMEN 1974']
+    
+    check = f"{btkID} {yr}"
+    
+    if check in duplicates:
+        await ctx.send(f"Error: {check} is the name of multiple storms in this database. Consider using their ATCF IDs instead.")
+        return
+    if(btkID == 'NOT_NAMED'):
+        await ctx.send("Due to the IBTRACS database being ambiguous with this name, it cannot be used.")
+        return
+    if(btkID == 'UNNAMED'):
+        await ctx.send("Due to the IBTRACS database being ambiguous with this name, it cannot be used.")
+        return
+    
+    def _00x_to_xx00(des):
+        convert_map = {"L": "AL", "E": "EP", "C": "CP", "W":"WP", "A":"IO", "B":"IO", "S":"SH", "P":"SH"}
+        return convert_map[des[-1]] + des[:-1]
+
+    import re
+    if re.match(r"^\d{2}[A-Z]$", btkID):    
+        btkID = _00x_to_xx00(btkID)
+
+    #Load in the loops for finding the latitude and longitude...
+
+    IBTRACS_ID = f"{btkID}{yr}"
+    cdx, cdy, DateTime = 0, 0, ""
+    storm_name = ""
+    s_ID = ""
+    idl = False
+    basin = ''
+    hx = int(hour[:2])
+    await ctx.send("Please wait. Due to my terrible potato laptop, the dataset may take a while to go through.")
+
+    #Template to read the IBTRACS Data...
+    with open('ibtracs.ALL.list.v04r01.csv', mode='r') as file:
+        csvFile = csv.reader(file)
+        for line_num, lines in enumerate(csvFile, start=1):
+            if line_num > 3:
+                #Process or print the lines from the 4th line onwards
+                #If IBTRACS ID matches the ID on the script...
+                if lines[18] == IBTRACS_ID or (btkID == lines[5] and yr == lines[6][:4]):
+                    DateTime = lines[6]
+                    basin = lines[3]
+                    if int(DateTime[:4]) == year and int(DateTime[5:7]) == month and int(DateTime[8:10]) == day and int(DateTime[-8:-6]) == hx:
+                        s_ID = lines[18]
+                        cdy, cdx = float(lines[19]), float(lines[20])
+                        if(float(cdx) < -178 or float(cdx) > 178):
+                            idl = True
+                        storm_name = lines[5]
+                        break
+    
+    if cdx == 0:
+        await ctx.send("Error 404: Storm not found. Please check if your entry is correct.")
+        return
+
+    await ctx.send("System located in database, fetching appropriate satellite...")
+
+    center_lat = cdy # Center latitude
+    center_lon = cdx # Center longitude
+    extent = 8  # Extent in degrees
+    #print(cdy, "", cdx)
+
+    if col == 'random':
+        import random
+        import inspect
+        functions = [func for name, func in inspect.getmembers(cmap_collection, inspect.isfunction)]
+        cmap_func = random.choice(functions)
+        await ctx.send(f"Selected function: {cmap_func.__name__}")
+    else:
+        cmap_func = getattr(cmap_collection, col)
+
+    # Now call it
+    cmap, vmax, vmin = cmap_func()
+
+    def satellite_mapping(cdx, day, month, year):
+        date = datetime(year, month, day)
+        if cdx > -105 and cdx < 10: #Atlantic
+            if datetime(1981, 8, 6) <= date <= datetime(1984, 7, 29):
+                return "GOES5"
+            if datetime(1987, 3, 25) <= date <= datetime(1994, 8, 30):
+                return "GOES7"
+            if datetime(1994, 8, 31) <= date <= datetime(2003, 4, 1):
+                return "GOES8"
+            if datetime(2003, 4, 2) <= date <= datetime(2010, 4, 14):
+                return "GOES12"
+            if datetime(2010, 4, 15) <= date <= datetime(2017, 12, 31):
+                return "GOES13"
+            return "GOES16"
+        if cdx < 180 and cdx > 110: #WPAC + AUS
+            if datetime(1978, 11, 30) <= date <= datetime(1979, 12, 1):
+                return "GMS1"
+            if datetime(1998, 11, 10) <= date <= datetime(2003, 4, 22):
+                return "GMS5"
+            if datetime(2003, 4, 23) <= date <= datetime(2005, 11, 17):
+                return "GOES9"
+            if (datetime(2005, 11, 18) <= date <= datetime(2010, 7, 10)) or (datetime(2010, 11, 1) <= date <= datetime(2010, 12, 21)) or (datetime(2012, 10, 18) <= date <= datetime(2012, 12, 26)) or (datetime(2013, 10, 22) <= date <= datetime(2013, 12, 18)):
+                return "MTSAT1R"
+            if (datetime(2010, 7, 11) <= date <= datetime(2010, 10, 31)) or (datetime(2010, 12, 22) <= date <= datetime(2012, 10, 17)) or (datetime(2012, 12, 27) <= date <= datetime(2013, 10, 21)) or (datetime(2013, 12, 19) <= date <= datetime(2015, 7, 6)):
+                return "MTSAT2"
+            if datetime(2015, 7, 6) <= date <= datetime(2022, 12, 24):
+                return "HIMAWARI8"
+            return "HIMAWARI9"
+        if cdx > -180 and cdx <= -105: #EPAC + SPAC 
+            if datetime(1995, 8, 31) <= date <= datetime(1998, 7, 21):
+                return "GOES9"
+            if datetime(1998, 7, 22) <= date <= datetime(2006, 6, 21):
+                return "GOES10"
+            if datetime(2006, 6, 22) <= date <= datetime(2011, 12, 6):
+                return "GOES11"
+            if datetime(2011, 12, 6) <= date <= datetime(2019, 2, 28):
+                return "GOES15"
+            if datetime(2019, 3, 1) <= date <= datetime(2023, 2, 27):
+                return "GOES17"
+            return "GOES18"
+        if cdx < 110 and cdx > 30: #Indian Ocean
+            if datetime(1999, 3, 5) <= date <= datetime(2007, 1, 25):
+                return "MET5"
+            if datetime(2007, 1, 26) <= date <= datetime(2016, 10, 31):
+                return "MET7"
+            if datetime(2016, 11, 1) <= date <= datetime(2022, 7, 4):
+                return "MET8"
+            return "MET9"
+        return "unknown"
+
+    bandIRMapping = {'GOES5': 2, 'GOES7': 2,'GOES8': 4, 'GOES9':4, 'GOES10':4,
+                        'GOES11':4, 'GOES12':4, 'GOES13':4, 'GOES15':4, 'GOES16':13,
+                        'GOES17':13, 'GOES18':13, 'GMS1':8, 'GMS5':2, 'MTSAT1R':2,
+                        'MTSAT2':2, 'HIMAWARI8':13, 'HIMAWARI9':13, 'MET5':8, 
+                        'MET7':8, 'MET8':9, 'MET9':9}
+
+    satellite = satellite_mapping(cdx, day, month, year)
+    if satellite == 'unknown':
+        await ctx.send("Could not locate satellite, not in SSEC Inventory. Use Gridsat instead.")
+        return
+    
+    api_key = 'API_KEY'
+    center_lon *= -1
+
+    url = f'https://mcfetch.ssec.wisc.edu/cgi-bin/mcfetch?dkey={api_key}&satellite={satellite}&band={bandIRMapping[satellite]}&output=NETCDF&date={year}-{str(month).zfill(2)}-{str(day).zfill(2)}&time={hour[:2]}:{hour[2:]}&lat={center_lat}+{center_lon}&size=400+400&coverage=FD&unit=TEMP'
+    
+    if satellite in ['GOES5', 'GOES7', 'GOES8', 'GOES9', 'GOES10', 'GOES11', 'GOES12', 'GOES13', 'GOES15']:
+        url += '&mag=-1+-2'
+    else:
+        url += '&mag=1+1'
+
+    response = requests.get(url)
+    if response.status_code == 200:
+        await ctx.send("Successful response, downloading and plotting...")
+        nc_data = xr.open_dataset(BytesIO(response.content))
+
+        data = nc_data['data'].squeeze().where(nc_data['data'] < 1e9)
+
+        lat = nc_data['lat'].where(nc_data['lat'] < 1e9)
+        lon = nc_data['lon'].where(nc_data['lon'] < 1e9)
+
+        projection = ccrs.PlateCarree()
+        plt.figure(figsize=(10, 8))
+        ax = plt.axes(projection=projection)
+        data = np.squeeze(data)  # Ensure shape is (500, 500)
+
+        extent_margin = 7.5
+        ax.set_extent([cdx - extent_margin, cdx + extent_margin, cdy - extent_margin, cdy + extent_margin], crs=projection)
+
+        # Slice the region within ±1° around the center
+        subset = data.where((lat >= cdy - 1) & (lat <= cdy + 1) &
+                            (lon >= cdx - 1) & (lon <= cdx + 1))
+
+        # Mask invalid values and find max
+        valid_pixels = subset.where(subset < 1e9)
+        max_bt_kelvin = valid_pixels.max().item()
+        max_bt_celsius = max_bt_kelvin - 273.15
+
+
+        pcolor = ax.pcolormesh(lon, lat, data, cmap=cmap, vmax=vmax, vmin=vmin, transform=projection)
+
+        ax.add_feature(cfeature.COASTLINE, linewidth=1, color="c")
+        ax.add_feature(cfeature.BORDERS, color="w", linewidth=0.75)
+        
+        ax.set_title(f'MCFETCH Band {str(bandIRMapping[satellite]).zfill(2)} Brightness Temperature IR | {hour[:2]}:{hour[2:]} UTC {str(day).zfill(2)}/{str(month).zfill(2)}/{str(year)}\n{s_ID} {storm_name} | Satellite: {satellite} | Max center temp: {max_bt_celsius:.2f}°C')
+
+        ax.set_xlabel('Longitude (degrees)')
+        ax.set_ylabel('Latitude (degrees)')
+        gls = ax.gridlines(draw_labels=True, linewidth=0.5, linestyle='--', color='gray')
+        gls.top_labels = False
+        gls.right_labels = False
+        gls.xlocator = mticker.FixedLocator(range(-180, 181, 2))  # Control gridline spacing
+        gls.ylocator = mticker.FixedLocator(range(-90, 91, 2))
+        #gl.xformatter = LONGITUDE_FORMATTER
+        gls.yformatter = LATITUDE_FORMATTER
+        gls.xlabel_style = {'size': 8, 'color': 'w'}  # Customize label style
+        gls.ylabel_style = {'size': 8, 'color': 'w'}
+        
+        import matplotlib.ticker as ticker
+        cbar = plt.colorbar(pcolor, ax=ax, orientation='vertical', shrink=0.8, pad=0.02)
+        from matplotlib.ticker import MultipleLocator, FuncFormatter
+
+        celsius_ticks = np.arange(vmin-273.15, vmax+1-273.15, 10)  # Adjust as needed
+        kelvin_ticks = celsius_ticks + 273.15
+
+        cbar.set_ticks(kelvin_ticks)
+        cbar.set_ticklabels([f"{c:.0f}" for c in celsius_ticks])
+        cbar.set_label(f"Brightness Temperature (°C) | Colorscale: {cmap_func.__name__}")
+
+        plt.tight_layout()
+        image_path = f'mcfetch_nc.png'
+        plt.savefig(image_path, format='png', bbox_inches='tight')
+        plt.close()
+
+        async def send_image(image_path):
+            with open(image_path, 'rb') as image_file:
+                image = discord.File(image_file)
+                await ctx.send(file=image)
+
+        # Send the generated image
+        await send_image(image_path)
+
+        # Remove the temporary image file
+        os.remove(image_path)
+        #os.remove("temp.nc")
+    else:
+        await ctx.data(f"Request unfortunately failed. Error Code: {response.status_code} - {response.reason}")
+        return
+
 @bot.command(name='mcfetch_help')
 async def mcfetch_help(ctx):
     image2 = 'MCFETCH_SATELLITESv2.webp'
@@ -6034,9 +6291,6 @@ async def gridsat_custom(ctx, lat:float, lon:float, hour:int, time:str, col:str,
             base_url = "https://www.ncei.noaa.gov/thredds/ncss/cdr/gridsat"
             filename = f"GRIDSAT-B1.{year}.{str(month).zfill(2)}.{str(day).zfill(2)}.{str(hour).zfill(2)}.v02r01.nc"
             
-            file1 = f"gridsatfile_part1.nc"
-            file2 = f"gridsatfile_part2.nc"
-            destination = "gridsatfile.nc"
             # Detect IDL crossing
             if idl == False:
                 # Normal case
@@ -6082,7 +6336,12 @@ async def gridsat_custom(ctx, lat:float, lon:float, hour:int, time:str, col:str,
             base_url = "https://www.ncei.noaa.gov/thredds/ncss/satellite/gridsat-goes-full-disk"
             filename = f"GridSat-GOES.{satellite}.{year}.{str(month).zfill(2)}.{str(day).zfill(2)}.{str(hour).zfill(2)}00.v01.nc"
             
-            if idl == False:
+            if idl == False or idl == True:
+                if idl == True:
+                    if lon_min > 0:
+                        lon_min = lon_min - 360
+                    if lon_max > 0:
+                        lon_max = lon_max - 360
                 subset_url = f"{base_url}/{year}/{str(month).zfill(2)}/{filename}?var=ch4&maxy={lat_max}&miny={lat_min}&maxx={lon_max}&minx={lon_min}&accept=netcdf"  
                 response = requests.get(subset_url)
                 if response.status_code == 200:
@@ -6134,7 +6393,7 @@ async def gridsat_custom(ctx, lat:float, lon:float, hour:int, time:str, col:str,
     #print("Longitude min/max:", lon[0].values, lon[-1].values)
 
     brightness_temp_slice = brightness_temp.isel(time=0)
-    if idl == True:
+    if idl == True and satellite == 'unknown':
         def remap_longitudes(lon_array):
             return ((lon_array + 180) % 360) - 180
 
@@ -6142,34 +6401,36 @@ async def gridsat_custom(ctx, lat:float, lon:float, hour:int, time:str, col:str,
         brightness_temp_slice = brightness_temp_slice.assign_coords(lon=remap_longitudes(brightness_temp_slice.lon)).sortby('lon')
 
     def get_brightness_temp_subset(brightness_temp_slice, lat_min, lat_max, lon_min, lon_max):
-        if idl == False:
+        if idl == False or satellite != 'unknown':
             subset = brightness_temp_slice.sel(
                 lat=slice(lat_min, lat_max),
                 lon=slice(lon_min, lon_max)
             )
         else:
-            # IDL wraparound
-            part1 = brightness_temp_slice.sel(
-                lat=slice(lat_min, lat_max),
-                lon=slice(lon_min, 180)
-            )
-            part2 = brightness_temp_slice.sel(
-                lat=slice(lat_min, lat_max),
-                lon=slice(-180, lon_max)
-            )
-            subset = xr.concat([part1, part2], dim="lon")
+            if satellite == 'unknown':
+                # IDL wraparound
+                part1 = brightness_temp_slice.sel(
+                    lat=slice(lat_min, lat_max),
+                    lon=slice(lon_min, 180)
+                )
+                part2 = brightness_temp_slice.sel(
+                    lat=slice(lat_min, lat_max),
+                    lon=slice(-180, lon_max)
+                )
+                subset = xr.concat([part1, part2], dim="lon")
         
         return subset
 
     # Select data within the specified bounds
     selected_lat = lat[(lat >= lat_min) & (lat <= lat_max)]
-    if idl == False:
+    if idl == False or satellite != 'unknown':
         selected_lon = lon[(lon >= lon_min) & (lon <= lon_max)]
         selected_brightness_temp = brightness_temp_slice.sel(lat=slice(lat_min, lat_max), lon=slice(lon_min, lon_max))
     else:
          # IDL case: wrap-around
-        selected_lon = lon[(lon >= lon_min) | (lon <= lon_max)]
-        selected_brightness_temp = get_brightness_temp_subset(brightness_temp_slice, lat_min, lat_max, lon_min, lon_max)
+        if satellite == 'unknown':
+            selected_lon = lon[(lon >= lon_min) | (lon <= lon_max)]
+            selected_brightness_temp = get_brightness_temp_subset(brightness_temp_slice, lat_min, lat_max, lon_min, lon_max)
     
     # Select eye temperature data within the specified bounds
     selected_eye_temp = brightness_temp_slice.sel(lat=slice(center_lat-1, center_lat+1), lon=slice(center_lon-1, center_lon+1))
@@ -6213,8 +6474,8 @@ async def gridsat_custom(ctx, lat:float, lon:float, hour:int, time:str, col:str,
     ax.add_feature(cfeature.COASTLINE, linewidth=1, color="c")
     ax.add_feature(cfeature.BORDERS, color="w", linewidth=0.75)
     #ax.add_feature(cfeature.LAND, facecolor=colors.to_rgba("c", 0.25))
-    ax.set_xlabel('Longitude (degrees_east)')
-    ax.set_ylabel('Latitude (degrees_north)')
+    ax.set_xlabel('Longitude (degrees)')
+    ax.set_ylabel('Latitude (degrees)')
     
     if satellite != 'unknown':
         ax.set_title(f'GRIDSAT-GOES Channel 4 Brightness Temperature IR | {str(hour).zfill(2)}:00 UTC {str(day).zfill(2)}/{str(month).zfill(2)}/{year}\n({center_lat}, {center_lon}) | {satellite[:-2].upper()}-{satellite[-2:]} | Max center temp = {kelvin_to_celsius(max_temp)} °C')
@@ -6232,7 +6493,7 @@ async def gridsat_custom(ctx, lat:float, lon:float, hour:int, time:str, col:str,
     
 
     import matplotlib.ticker as ticker
-    cbar = plt.colorbar(pcolor, label='Brightness Temperature (Celcius)')
+    cbar = plt.colorbar(pcolor, label=f'Brightness Temperature (Celcius) | Colorscale: {cmap_func.__name__}')
     cbar.locator = ticker.MultipleLocator(10)
     cbar.update_ticks()
 
@@ -6412,9 +6673,6 @@ async def gridsat(ctx, btkID:str, yr:str, hour:int, time:str, col:str, override 
             base_url = "https://www.ncei.noaa.gov/thredds/ncss/cdr/gridsat"
             filename = f"GRIDSAT-B1.{year}.{str(month).zfill(2)}.{str(day).zfill(2)}.{str(hour).zfill(2)}.v02r01.nc"
             
-            file1 = f"gridsatfile_part1.nc"
-            file2 = f"gridsatfile_part2.nc"
-            destination = "gridsatfile.nc"
             # Detect IDL crossing
             if idl == False:
                 # Normal case
@@ -6460,7 +6718,13 @@ async def gridsat(ctx, btkID:str, yr:str, hour:int, time:str, col:str, override 
             base_url = "https://www.ncei.noaa.gov/thredds/ncss/satellite/gridsat-goes-full-disk"
             filename = f"GridSat-GOES.{satellite}.{year}.{str(month).zfill(2)}.{str(day).zfill(2)}.{str(hour).zfill(2)}00.v01.nc"
             
-            if idl == False:
+            if idl == True or idl == False:
+                if idl:
+                    if lon_max > 0:
+                        lon_max -= 360
+                    if lon_min > 0:
+                        lon_min -= 360
+
                 subset_url = f"{base_url}/{year}/{str(month).zfill(2)}/{filename}?var=ch4&maxy={lat_max}&miny={lat_min}&maxx={lon_max}&minx={lon_min}&accept=netcdf"  
                 response = requests.get(subset_url)
                 if response.status_code == 200:
@@ -6512,7 +6776,7 @@ async def gridsat(ctx, btkID:str, yr:str, hour:int, time:str, col:str, override 
     #print("Longitude min/max:", lon[0].values, lon[-1].values)
 
     brightness_temp_slice = brightness_temp.isel(time=0)
-    if idl == True:
+    if idl == True and satellite == 'unknown':
         def remap_longitudes(lon_array):
             return ((lon_array + 180) % 360) - 180
 
@@ -6541,13 +6805,14 @@ async def gridsat(ctx, btkID:str, yr:str, hour:int, time:str, col:str, override 
 
     # Select data within the specified bounds
     selected_lat = lat[(lat >= lat_min) & (lat <= lat_max)]
-    if idl == False:
+    if idl == False or satellite != 'unknown':
         selected_lon = lon[(lon >= lon_min) & (lon <= lon_max)]
         selected_brightness_temp = brightness_temp_slice.sel(lat=slice(lat_min, lat_max), lon=slice(lon_min, lon_max))
     else:
          # IDL case: wrap-around
-        selected_lon = lon[(lon >= lon_min) | (lon <= lon_max)]
-        selected_brightness_temp = get_brightness_temp_subset(brightness_temp_slice, lat_min, lat_max, lon_min, lon_max)
+        if satellite == 'unknown':
+            selected_lon = lon[(lon >= lon_min) | (lon <= lon_max)]
+            selected_brightness_temp = get_brightness_temp_subset(brightness_temp_slice, lat_min, lat_max, lon_min, lon_max)
     
     # Select eye temperature data within the specified bounds
     selected_eye_temp = brightness_temp_slice.sel(lat=slice(center_lat-1, center_lat+1), lon=slice(center_lon-1, center_lon+1))
@@ -6610,7 +6875,7 @@ async def gridsat(ctx, btkID:str, yr:str, hour:int, time:str, col:str, override 
     
 
     import matplotlib.ticker as ticker
-    cbar = plt.colorbar(pcolor, label='Brightness Temperature (Celcius)')
+    cbar = plt.colorbar(pcolor, label=f'Brightness Temperature (Celcius) | Colorscale: {cmap_func.__name__}')
     cbar.locator = ticker.MultipleLocator(10)
     cbar.update_ticks()
 
