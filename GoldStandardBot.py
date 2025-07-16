@@ -5876,7 +5876,7 @@ async def mcfetch_nc(ctx, btkID, yr, hour, date, col:str):
                     if int(DateTime[:4]) == year and int(DateTime[5:7]) == month and int(DateTime[8:10]) == day and int(DateTime[-8:-6]) == hx:
                         s_ID = lines[18]
                         cdy, cdx = float(lines[19]), float(lines[20])
-                        if(float(cdx) < -178 or float(cdx) > 178):
+                        if(float(cdx) < -174 or float(cdx) > 174):
                             idl = True
                         storm_name = lines[5]
                         break
@@ -5907,6 +5907,12 @@ async def mcfetch_nc(ctx, btkID, yr, hour, date, col:str):
     def satellite_mapping(cdx, day, month, year):
         date = datetime(year, month, day)
         if cdx > -105 and cdx < 10: #Atlantic
+            if datetime(1978, 2, 18) <= date <= datetime(1979, 1, 19):
+                return "GOES2"
+            if datetime(1979, 1, 21) <= date <= datetime(1979, 4, 19):
+                return "SMS1"
+            if datetime(1979, 4, 20) <= date <= datetime(1981, 8, 5):
+                return "SMS2"
             if datetime(1981, 8, 6) <= date <= datetime(1984, 7, 29):
                 return "GOES5"
             if datetime(1987, 3, 25) <= date <= datetime(1994, 8, 30):
@@ -5918,7 +5924,7 @@ async def mcfetch_nc(ctx, btkID, yr, hour, date, col:str):
             if datetime(2010, 4, 15) <= date <= datetime(2017, 12, 31):
                 return "GOES13"
             return "GOES16"
-        if cdx < 180 and cdx > 110: #WPAC + AUS
+        if cdx < 180 and cdx > 100: #WPAC + AUS
             if datetime(1978, 11, 30) <= date <= datetime(1979, 12, 1):
                 return "GMS1"
             if datetime(1998, 11, 10) <= date <= datetime(2003, 4, 22):
@@ -5933,6 +5939,18 @@ async def mcfetch_nc(ctx, btkID, yr, hour, date, col:str):
                 return "HIMAWARI8"
             return "HIMAWARI9"
         if cdx > -180 and cdx <= -105: #EPAC + SPAC 
+            if datetime(1978, 2, 18) <= date <= datetime(1978, 11, 20):
+                return "GOES2"
+            if datetime(1978, 11, 21) <= date <= datetime(1981, 3, 4):
+                return "GOES3"
+            if datetime(1981, 3, 5) <= date <= datetime(1982, 11, 25):
+                return "GOES4"
+            if datetime(1982, 11, 29) <= date <= datetime(1983, 5, 31):
+                return "GOES1"
+            if datetime(1983, 6, 1) <= date <= datetime(1989, 1, 20):
+                return "GOES6"
+            if datetime(1989, 1, 21) <= date <= datetime(1996, 1, 1):
+                return "GOES7"
             if datetime(1995, 8, 31) <= date <= datetime(1998, 7, 21):
                 return "GOES9"
             if datetime(1998, 7, 22) <= date <= datetime(2006, 6, 21):
@@ -5944,7 +5962,7 @@ async def mcfetch_nc(ctx, btkID, yr, hour, date, col:str):
             if datetime(2019, 3, 1) <= date <= datetime(2023, 2, 27):
                 return "GOES17"
             return "GOES18"
-        if cdx < 110 and cdx > 30: #Indian Ocean
+        if cdx < 100 and cdx > 30: #Indian Ocean
             if datetime(1999, 3, 5) <= date <= datetime(2007, 1, 25):
                 return "MET5"
             if datetime(2007, 1, 26) <= date <= datetime(2016, 10, 31):
@@ -5954,11 +5972,12 @@ async def mcfetch_nc(ctx, btkID, yr, hour, date, col:str):
             return "MET9"
         return "unknown"
 
-    bandIRMapping = {'GOES5': 2, 'GOES7': 2,'GOES8': 4, 'GOES9':4, 'GOES10':4,
-                        'GOES11':4, 'GOES12':4, 'GOES13':4, 'GOES15':4, 'GOES16':13,
-                        'GOES17':13, 'GOES18':13, 'GMS1':8, 'GMS5':2, 'MTSAT1R':2,
-                        'MTSAT2':2, 'HIMAWARI8':13, 'HIMAWARI9':13, 'MET5':8, 
-                        'MET7':8, 'MET8':9, 'MET9':9}
+    bandIRMapping = {'GOES1':8, 'GOES2':8, 'GOES3':8, 'GOES4':8,'GOES5': 8, 'GOES6':8, 
+                     'GOES7': 8,'GOES8': 4, 'GOES9':4, 'GOES10':4,
+                     'GOES11':4, 'GOES12':4, 'GOES13':4, 'GOES15':4, 'GOES16':13,
+                     'GOES17':13, 'GOES18':13, 'GMS1':8, 'GMS5':2, 'MTSAT1R':2,
+                     'MTSAT2':2, 'HIMAWARI8':13, 'HIMAWARI9':13, 'MET5':8, 
+                     'MET7':8, 'MET8':9, 'MET9':9, 'SMS1':8, 'SMS2':8}
 
     satellite = satellite_mapping(cdx, day, month, year)
     if satellite == 'unknown':
@@ -5967,31 +5986,53 @@ async def mcfetch_nc(ctx, btkID, yr, hour, date, col:str):
     
     api_key = 'API_KEY'
     center_lon *= -1
+    size = 350
+    extent_margin = 6.5
 
-    url = f'https://mcfetch.ssec.wisc.edu/cgi-bin/mcfetch?dkey={api_key}&satellite={satellite}&band={bandIRMapping[satellite]}&output=NETCDF&date={year}-{str(month).zfill(2)}-{str(day).zfill(2)}&time={hour[:2]}:{hour[2:]}&lat={center_lat}+{center_lon}&size=400+400&coverage=FD&unit=TEMP'
+    if satellite in ['GOES5', 'GOES7']:
+        if hour == '0000':
+            from datetime import timedelta
+            currdate = datetime(year, month, day)
+            prevdate = currdate - timedelta(days=1)
+            year, month, day = prevdate.year, prevdate.month, prevdate.day
+            hour ='2331'
+        else:
+            hour = str(int(hour[:2])-1).zfill(2) + '31'
+
+    url = f'https://mcfetch.ssec.wisc.edu/cgi-bin/mcfetch?dkey={api_key}&satellite={satellite}&band={bandIRMapping[satellite]}&output=NETCDF&date={year}-{str(month).zfill(2)}-{str(day).zfill(2)}&time={hour[:2]}:{hour[2:]}&lat={center_lat}+{center_lon}&unit=TEMP'
     
-    if satellite in ['GOES5', 'GOES7', 'GOES8', 'GOES9', 'GOES10', 'GOES11', 'GOES12', 'GOES13', 'GOES15']:
-        url += '&mag=-1+-2'
-    else:
-        url += '&mag=1+1'
+    url += '&mag=1+1'
 
-    response = requests.get(url)
-    if response.status_code == 200:
-        await ctx.send("Successful response, downloading and plotting...")
-        nc_data = xr.open_dataset(BytesIO(response.content))
+    if satellite in ['GOES16', 'GOES17', 'GOES18', 'GOES19', 'HIMAWARI8', 'HIMAWARI9']:
+        size = 500
+        extent_margin = 5
+        url +=  '&coverage=FD'
+    url += f'&size={size}+{size}'
 
+    await ctx.send("Downloading the requested file...")
+    #await ctx.send(url)
+    
+    import urllib3
+    http = urllib3.PoolManager()
+    response = http.request('GET', url)
+    
+    if response.status == 200:
+        try: 
+            nc_data = xr.open_dataset(BytesIO(response.data))
+        except ValueError:
+            await ctx.send("The mcfetch file either does not exist or inputs were incorrect. Try again or use gridsat instead.")
+            return
+        await ctx.send("Successful response, plotting...")
         data = nc_data['data'].squeeze().where(nc_data['data'] < 1e9)
-
+        if satellite in ['GOES5', 'GOES7']:
+            data /= 10
         lat = nc_data['lat'].where(nc_data['lat'] < 1e9)
         lon = nc_data['lon'].where(nc_data['lon'] < 1e9)
 
-        projection = ccrs.PlateCarree()
+        projection = ccrs.PlateCarree() if idl==False else ccrs.PlateCarree(central_longitude=180)
         plt.figure(figsize=(10, 8))
         ax = plt.axes(projection=projection)
-        data = np.squeeze(data)  # Ensure shape is (500, 500)
-
-        extent_margin = 7.5
-        ax.set_extent([cdx - extent_margin, cdx + extent_margin, cdy - extent_margin, cdy + extent_margin], crs=projection)
+        data = np.squeeze(data)  # Ensure shape is (SIZE, SIZE)
 
         # Slice the region within ±1° around the center
         subset = data.where((lat >= cdy - 1) & (lat <= cdy + 1) &
@@ -6002,6 +6043,14 @@ async def mcfetch_nc(ctx, btkID, yr, hour, date, col:str):
         max_bt_kelvin = valid_pixels.max().item()
         max_bt_celsius = max_bt_kelvin - 273.15
 
+        if idl:
+            lon = xr.where(lon < 0, lon + 180, lon - 180)
+
+        if idl:
+            adjusted_cdx = (cdx + 180) % 360  # Wrap to 0–360 if necessary
+        else:
+            adjusted_cdx = cdx
+        ax.set_extent([adjusted_cdx - extent_margin, adjusted_cdx + extent_margin, cdy - extent_margin, cdy + extent_margin], crs=projection)
 
         pcolor = ax.pcolormesh(lon, lat, data, cmap=cmap, vmax=vmax, vmin=vmin, transform=projection)
 
@@ -6023,7 +6072,7 @@ async def mcfetch_nc(ctx, btkID, yr, hour, date, col:str):
         gls.ylabel_style = {'size': 8, 'color': 'w'}
         
         import matplotlib.ticker as ticker
-        cbar = plt.colorbar(pcolor, ax=ax, orientation='vertical', shrink=0.8, pad=0.02)
+        cbar = plt.colorbar(pcolor, ax=ax, orientation='vertical', shrink=1, pad=0.02)
         from matplotlib.ticker import MultipleLocator, FuncFormatter
 
         celsius_ticks = np.arange(vmin-273.15, vmax+1-273.15, 10)  # Adjust as needed
@@ -6050,7 +6099,7 @@ async def mcfetch_nc(ctx, btkID, yr, hour, date, col:str):
         os.remove(image_path)
         #os.remove("temp.nc")
     else:
-        await ctx.data(f"Request unfortunately failed. Error Code: {response.status_code} - {response.reason}")
+        await ctx.data(f"Request unfortunately failed.")
         return
 
 @bot.command(name='mcfetch_help')
@@ -6278,7 +6327,7 @@ async def gridsat_custom(ctx, lat:float, lon:float, hour:int, time:str, col:str,
         return "unknown"
 
     satellite = ''
-    if center_lon >= 150 or center_lon <= -5: 
+    if center_lon >= 150 or center_lon <= -5 and idl == False: 
         satellite = get_satellite(int(year), int(month), int(day), lon)
     else:
         satellite = 'unknown'
@@ -6775,6 +6824,69 @@ async def gridsat(ctx, btkID:str, yr:str, hour:int, time:str, col:str, override 
     brightness_temp = dataset['irwin_cdr'] if satellite == 'unknown' else dataset['ch4']
     #print("Longitude min/max:", lon[0].values, lon[-1].values)
 
+
+    #IDL case and Gridsat GOES:
+    if idl and satellite != 'unknown':
+        if 'time' in brightness_temp.dims:
+            brightness_temp = brightness_temp.isel(time=0)
+        lons_360 = lon % 360
+        # If lon is a coordinate of ch4, make a copy with adjusted lons
+        if 'lon' in brightness_temp.coords:
+            brightness_temp = brightness_temp.assign_coords(lon=lons_360)
+
+        # Sort by longitude to avoid wraparound issues
+        brightness_temp = brightness_temp.sortby('lon')
+
+        projection = ccrs.PlateCarree(central_longitude=180)
+        plt.figure(figsize=(10, 8))
+        ax = plt.axes(projection=projection)
+
+        brightness_temp['lon'] = xr.where(brightness_temp['lon'] < 0, brightness_temp['lon'] + 180, brightness_temp['lon'] - 180)
+
+        pcolor = ax.pcolormesh(brightness_temp['lon'], brightness_temp['lat'], brightness_temp, cmap=cmap, transform=projection, vmax=vmax, vmin=vmin)
+        ax.add_feature(cfeature.COASTLINE, linewidth=1, color="c")
+        ax.add_feature(cfeature.BORDERS, color="w", linewidth=0.75)
+        #ax.add_feature(cfeature.LAND, facecolor=colors.to_rgba("c", 0.25))
+        ax.set_xlabel('Longitude (degrees_east)')
+        ax.set_ylabel('Latitude (degrees_north)')
+
+        ax.set_title(f'GRIDSAT-GOES Channel 4 Brightness Temperature IR | {str(hour).zfill(2)}:00 UTC {str(day).zfill(2)}/{str(month).zfill(2)}/{year}\n{s_ID} {storm_name} | {satellite[:-2].upper()}-{satellite[-2:]} | Max center temp = N/A due to IDL')
+        gls = ax.gridlines(draw_labels=True, linewidth=0.5, linestyle='--', color='gray')
+        gls.top_labels = False
+        gls.right_labels = False
+        gls.xlocator = mticker.FixedLocator(range(-180, 181, 2))  # Control gridline spacing
+        gls.ylocator = mticker.FixedLocator(range(-90, 91, 2))
+        #gl.xformatter = LONGITUDE_FORMATTER
+        gls.yformatter = LATITUDE_FORMATTER
+        gls.xlabel_style = {'size': 8, 'color': 'w'}  # Customize label style
+        gls.ylabel_style = {'size': 8, 'color': 'w'}
+        
+
+        import matplotlib.ticker as ticker
+        cbar = plt.colorbar(pcolor, label=f'Brightness Temperature (Celcius) | Colorscale: {cmap_func.__name__}')
+        cbar.locator = ticker.MultipleLocator(10)
+        cbar.update_ticks()
+
+        plt.tight_layout()
+        image_path = f'IDL_Map.png'
+        plt.savefig(image_path, format='png', bbox_inches='tight')
+        plt.close()
+
+        async def send_image(image_path):
+            with open(image_path, 'rb') as image_file:
+                image = discord.File(image_file)
+                await ctx.send(file=image)
+
+        # Send the generated image
+        await send_image(image_path)
+
+        # Remove the temporary image file
+        os.remove(image_path)
+
+        dataset.close()
+        os.remove(destination)
+        return
+
     brightness_temp_slice = brightness_temp.isel(time=0)
     if idl == True and satellite == 'unknown':
         def remap_longitudes(lon_array):
@@ -6805,14 +6917,14 @@ async def gridsat(ctx, btkID:str, yr:str, hour:int, time:str, col:str, override 
 
     # Select data within the specified bounds
     selected_lat = lat[(lat >= lat_min) & (lat <= lat_max)]
-    if idl == False or satellite != 'unknown':
+    if idl == False:
         selected_lon = lon[(lon >= lon_min) & (lon <= lon_max)]
         selected_brightness_temp = brightness_temp_slice.sel(lat=slice(lat_min, lat_max), lon=slice(lon_min, lon_max))
     else:
          # IDL case: wrap-around
-        if satellite == 'unknown':
-            selected_lon = lon[(lon >= lon_min) | (lon <= lon_max)]
-            selected_brightness_temp = get_brightness_temp_subset(brightness_temp_slice, lat_min, lat_max, lon_min, lon_max)
+
+        selected_lon = lon[(lon >= lon_min) | (lon <= lon_max)]
+        selected_brightness_temp = get_brightness_temp_subset(brightness_temp_slice, lat_min, lat_max, lon_min, lon_max)
     
     # Select eye temperature data within the specified bounds
     selected_eye_temp = brightness_temp_slice.sel(lat=slice(center_lat-1, center_lat+1), lon=slice(center_lon-1, center_lon+1))
