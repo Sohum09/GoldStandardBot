@@ -5876,7 +5876,7 @@ async def mcfetch_nc(ctx, btkID, yr, hour, date, col:str):
                     if int(DateTime[:4]) == year and int(DateTime[5:7]) == month and int(DateTime[8:10]) == day and int(DateTime[-8:-6]) == hx:
                         s_ID = lines[18]
                         cdy, cdx = float(lines[19]), float(lines[20])
-                        if(float(cdx) < -174 or float(cdx) > 174):
+                        if(float(cdx) <= -173.5 or float(cdx) >= 173.5):
                             idl = True
                         storm_name = lines[5]
                         break
@@ -5924,7 +5924,7 @@ async def mcfetch_nc(ctx, btkID, yr, hour, date, col:str):
             if datetime(2010, 4, 15) <= date <= datetime(2017, 12, 31):
                 return "GOES13"
             return "GOES16"
-        if cdx < 180 and cdx > 100: #WPAC + AUS
+        if cdx <= 180 and cdx > 100: #WPAC + AUS
             if datetime(1978, 11, 30) <= date <= datetime(1979, 12, 1):
                 return "GMS1"
             if datetime(1998, 11, 10) <= date <= datetime(2003, 4, 22):
@@ -5938,7 +5938,7 @@ async def mcfetch_nc(ctx, btkID, yr, hour, date, col:str):
             if datetime(2015, 7, 6) <= date <= datetime(2022, 12, 24):
                 return "HIMAWARI8"
             return "HIMAWARI9"
-        if cdx > -180 and cdx <= -105: #EPAC + SPAC 
+        if cdx >= -180 and cdx <= -105: #EPAC + SPAC 
             if datetime(1978, 2, 18) <= date <= datetime(1978, 11, 20):
                 return "GOES2"
             if datetime(1978, 11, 21) <= date <= datetime(1981, 3, 4):
@@ -5963,17 +5963,23 @@ async def mcfetch_nc(ctx, btkID, yr, hour, date, col:str):
                 return "GOES17"
             return "GOES18"
         if cdx < 100 and cdx > 30: #Indian Ocean
+            if datetime(1978, 12, 2) <= date <= datetime(1979, 12, 1):
+                return "GOES1"
             if datetime(1999, 3, 5) <= date <= datetime(2007, 1, 25):
                 return "MET5"
             if datetime(2007, 1, 26) <= date <= datetime(2016, 10, 31):
                 return "MET7"
-            if datetime(2016, 11, 1) <= date <= datetime(2022, 7, 4):
+            if datetime(2016, 11, 1) <= date <= datetime(2020, 12, 15):
                 return "MET8"
-            return "MET9"
+            if datetime(2020, 12, 16) <= date <= datetime(2023, 4, 1):
+                return "EWS-G1"
+            if datetime(2023, 4, 2) <= date <= datetime(2023, 10, 25):
+                return "MET9"
+            return "EWS-G2"
         return "unknown"
 
     bandIRMapping = {'GOES1':8, 'GOES2':8, 'GOES3':8, 'GOES4':8,'GOES5': 8, 'GOES6':8, 
-                     'GOES7': 8,'GOES8': 4, 'GOES9':4, 'GOES10':4,
+                     'GOES7': 8,'GOES8': 4, 'GOES9':4, 'GOES10':4,'EWS-G1':4, 'EWS-G2':4,
                      'GOES11':4, 'GOES12':4, 'GOES13':4, 'GOES15':4, 'GOES16':13,
                      'GOES17':13, 'GOES18':13, 'GMS1':8, 'GMS5':2, 'MTSAT1R':2,
                      'MTSAT2':2, 'HIMAWARI8':13, 'HIMAWARI9':13, 'MET5':8, 
@@ -5983,8 +5989,8 @@ async def mcfetch_nc(ctx, btkID, yr, hour, date, col:str):
     if satellite == 'unknown':
         await ctx.send("Could not locate satellite, not in SSEC Inventory. Use Gridsat instead.")
         return
-    
-    api_key = 'API_KEY'
+    import random
+    api_key = ['API_KEY', 'API_KEY2', 'API_KEY3']
     center_lon *= -1
     size = 350
     extent_margin = 6.5
@@ -5999,18 +6005,19 @@ async def mcfetch_nc(ctx, btkID, yr, hour, date, col:str):
         else:
             hour = str(int(hour[:2])-1).zfill(2) + '31'
 
-    url = f'https://mcfetch.ssec.wisc.edu/cgi-bin/mcfetch?dkey={api_key}&satellite={satellite}&band={bandIRMapping[satellite]}&output=NETCDF&date={year}-{str(month).zfill(2)}-{str(day).zfill(2)}&time={hour[:2]}:{hour[2:]}&lat={center_lat}+{center_lon}&unit=TEMP'
-    
-    url += '&mag=1+1'
+    url = f'https://mcfetch.ssec.wisc.edu/cgi-bin/mcfetch?dkey={random.choice(api_key)}&satellite={satellite}&band={bandIRMapping[satellite]}&output=NETCDF&date={year}-{str(month).zfill(2)}-{str(day).zfill(2)}&time={hour[:2]}:{hour[2:]}&lat={center_lat}+{center_lon}&mag=1+1&unit=TEMP'
 
     if satellite in ['GOES16', 'GOES17', 'GOES18', 'GOES19', 'HIMAWARI8', 'HIMAWARI9']:
         size = 500
         extent_margin = 5
-        url +=  '&coverage=FD'
+        url += '&coverage=FD'
+    if satellite == 'MTSAT1R' and hour[:2] in ['00', '06', '12', '18'] and cdy > 0:
+        url += '&coverage=NH'
     url += f'&size={size}+{size}'
 
     await ctx.send("Downloading the requested file...")
-    #await ctx.send(url)
+    edited_url = f'https://mcfetch.ssec.wisc.edu/cgi-bin/mcfetch?dkey=API_KEY&satellite={satellite}&band={bandIRMapping[satellite]}&output=NETCDF&date={year}-{str(month).zfill(2)}-{str(day).zfill(2)}&time={hour[:2]}:{hour[2:]}&lat={center_lat}+{center_lon}&mag=1+1&unit=TEMP'
+    await ctx.send(edited_url)
     
     import urllib3
     http = urllib3.PoolManager()
@@ -6024,7 +6031,178 @@ async def mcfetch_nc(ctx, btkID, yr, hour, date, col:str):
             return
         await ctx.send("Successful response, plotting...")
         data = nc_data['data'].squeeze().where(nc_data['data'] < 1e9)
-        if satellite in ['GOES5', 'GOES7']:
+        if satellite in ['GOES7']:
+            data /= 10
+        lat = nc_data['lat'].where(nc_data['lat'] < 1e9)
+        lon = nc_data['lon'].where(nc_data['lon'] < 1e9)
+
+        projection = ccrs.PlateCarree() if idl==False else ccrs.PlateCarree(central_longitude=180)
+        plt.figure(figsize=(10, 8))
+        ax = plt.axes(projection=projection)
+        data = np.squeeze(data)  # Ensure shape is (SIZE, SIZE)
+
+        # Slice the region within ±1° around the center
+        subset = data.where((lat >= cdy - 1) & (lat <= cdy + 1) &
+                            (lon >= cdx - 1) & (lon <= cdx + 1))
+
+        # Mask invalid values and find max
+        valid_pixels = subset.where(subset < 1e9)
+        max_bt_kelvin = valid_pixels.max().item()
+        max_bt_celsius = max_bt_kelvin - 273.15
+
+        if idl:
+            lon = xr.where(lon < 0, lon + 180, lon - 180)
+
+        import datetime
+
+        # Access the 'time' variable and get its value
+        time_value = nc_data['time'].values
+
+        # Convert the time value (seconds since epoch) to a datetime object
+        # The time variable has a 'units' attribute indicating it's seconds since 1970-1-1 0:0:0
+        # We need to convert the seconds since epoch to a timedelta and add it to the epoch start
+        epoch_start = np.datetime64('1970-01-01T00:00:00Z')
+        time_difference = time_value[0] - epoch_start
+        seconds_since_epoch = time_difference.astype('timedelta64[s]').item().total_seconds()
+
+        # Convert the seconds since epoch to a datetime object
+        datetime_obj = datetime.datetime(1970, 1, 1, 0, 0, 0, tzinfo=datetime.timezone.utc) + datetime.timedelta(seconds=seconds_since_epoch)
+        time_string = datetime_obj.strftime('%H:%M')
+        
+        if idl:
+            adjusted_cdx = (cdx + 180) % 360  # Wrap to 0–360 if necessary
+        else:
+            adjusted_cdx = cdx
+        ax.set_extent([adjusted_cdx - extent_margin, adjusted_cdx + extent_margin, cdy - extent_margin, cdy + extent_margin], crs=projection)
+
+        pcolor = ax.pcolormesh(lon, lat, data, cmap=cmap, vmax=vmax, vmin=vmin, transform=projection)
+
+        ax.add_feature(cfeature.COASTLINE, linewidth=1, color="c")
+        ax.add_feature(cfeature.BORDERS, color="w", linewidth=0.75)
+        
+        ax.set_title(f'MCFETCH Band {str(bandIRMapping[satellite]).zfill(2)} Brightness Temperature IR | {time_string} UTC {str(day).zfill(2)}/{str(month).zfill(2)}/{str(year)}\n{s_ID} {storm_name} | Satellite: {satellite} | Max center temp: {max_bt_celsius:.2f}°C')
+
+        ax.set_xlabel('Longitude (degrees)')
+        ax.set_ylabel('Latitude (degrees)')
+        gls = ax.gridlines(draw_labels=True, linewidth=0.5, linestyle='--', color='gray')
+        gls.top_labels = False
+        gls.right_labels = False
+        gls.xlocator = mticker.FixedLocator(range(-180, 181, 2))  # Control gridline spacing
+        gls.ylocator = mticker.FixedLocator(range(-90, 91, 2))
+        #gl.xformatter = LONGITUDE_FORMATTER
+        gls.yformatter = LATITUDE_FORMATTER
+        gls.xlabel_style = {'size': 8, 'color': 'w'}  # Customize label style
+        gls.ylabel_style = {'size': 8, 'color': 'w'}
+        
+        import matplotlib.ticker as ticker
+        cbar = plt.colorbar(pcolor, ax=ax, orientation='vertical', shrink=1, pad=0.02)
+        from matplotlib.ticker import MultipleLocator, FuncFormatter
+
+        celsius_ticks = np.arange(vmin-273.15, vmax+1-273.15, 10)  # Adjust as needed
+        kelvin_ticks = celsius_ticks + 273.15
+
+        cbar.set_ticks(kelvin_ticks)
+        cbar.set_ticklabels([f"{c:.0f}" for c in celsius_ticks])
+        cbar.set_label(f"Brightness Temperature (°C) | Colorscale: {cmap_func.__name__}")
+
+        plt.tight_layout()
+        image_path = f'mcfetch_nc{random.randint(1, 100)}.png'
+        plt.savefig(image_path, format='png', bbox_inches='tight')
+        plt.close()
+
+        async def send_image(image_path):
+            with open(image_path, 'rb') as image_file:
+                image = discord.File(image_file)
+                await ctx.send(file=image)
+
+        # Send the generated image
+        await send_image(image_path)
+
+        # Remove the temporary image file
+        os.remove(image_path)
+        #os.remove("temp.nc")
+    else:
+        await ctx.data(f"Request unfortunately failed.")
+        return
+
+@bot.command(name='mcfetch_pro')
+async def mcfetch_pro(ctx, satellite, band, cdy:float, cdx:float, hour, date, col:str, coverage=''):
+    import matplotlib.style as mplstyle
+    import cmap_collection
+    import xarray as xr
+    import matplotlib.pyplot as plt
+    import cartopy.crs as ccrs
+    import cartopy.feature as cfeature
+    import numpy as np
+    import os
+    from io import BytesIO
+    from matplotlib.colors import ListedColormap, LinearSegmentedColormap
+    import matplotlib.ticker as mticker
+    from cartopy.mpl.gridliner import LONGITUDE_FORMATTER, LATITUDE_FORMATTER
+    from datetime import datetime
+    mplstyle.use("dark_background") 
+    
+    idl = False
+    if(float(cdx) <= -173.5 or float(cdx) >= 173.5):
+        idl = True
+    await ctx.send("System located in database, fetching appropriate satellite...")
+
+    col = col.lower()
+    date = date.split('/')
+    day, month, year = int(date[0]), int(date[1]), int(date[2])
+
+    print(f"Command received from server: {ctx.guild.name}")
+
+    center_lat = cdy # Center latitude
+    center_lon = cdx # Center longitude
+    extent = 8  # Extent in degrees
+    #print(cdy, "", cdx)
+
+    if col == 'random':
+        import random
+        import inspect
+        functions = [func for name, func in inspect.getmembers(cmap_collection, inspect.isfunction)]
+        cmap_func = random.choice(functions)
+        await ctx.send(f"Selected function: {cmap_func.__name__}")
+    else:
+        cmap_func = getattr(cmap_collection, col)
+
+    # Now call it
+    cmap, vmax, vmin = cmap_func()
+    satellite = satellite.upper()
+
+    import random
+    api_key = ['API_KEY', 'API_KEY2', 'API_KEY3']
+    center_lon *= -1
+    size = 350
+    extent_margin = 6.5
+
+    url = f'https://mcfetch.ssec.wisc.edu/cgi-bin/mcfetch?dkey={random.choice(api_key)}&satellite={satellite}&band={band}&output=NETCDF&date={year}-{str(month).zfill(2)}-{str(day).zfill(2)}&time={hour[:2]}:{hour[2:]}&lat={center_lat}+{center_lon}&mag=1+1&unit=TEMP'
+    
+
+    if coverage != '':
+        url +=  f'&coverage={coverage}'
+        extent_margin = 5
+        size = 500
+    url += f'&size={size}+{size}'
+
+    await ctx.send("Downloading the requested file...")
+    edited_url = f'https://mcfetch.ssec.wisc.edu/cgi-bin/mcfetch?dkey=API_KEY&satellite={satellite}&band={band}&output=NETCDF&date={year}-{str(month).zfill(2)}-{str(day).zfill(2)}&time={hour[:2]}:{hour[2:]}&lat={center_lat}+{center_lon}&mag=1+1&unit=TEMP'
+    await ctx.send(edited_url)
+    
+    import urllib3
+    http = urllib3.PoolManager()
+    response = http.request('GET', url)
+    
+    if response.status == 200:
+        try: 
+            nc_data = xr.open_dataset(BytesIO(response.data))
+        except ValueError:
+            await ctx.send("The mcfetch file either does not exist or inputs were incorrect. Try again or use gridsat instead.")
+            return
+        await ctx.send("Successful response, plotting...")
+        data = nc_data['data'].squeeze().where(nc_data['data'] < 1e9)
+        if satellite in ['GOES7']:
             data /= 10
         lat = nc_data['lat'].where(nc_data['lat'] < 1e9)
         lon = nc_data['lon'].where(nc_data['lon'] < 1e9)
@@ -6057,7 +6235,7 @@ async def mcfetch_nc(ctx, btkID, yr, hour, date, col:str):
         ax.add_feature(cfeature.COASTLINE, linewidth=1, color="c")
         ax.add_feature(cfeature.BORDERS, color="w", linewidth=0.75)
         
-        ax.set_title(f'MCFETCH Band {str(bandIRMapping[satellite]).zfill(2)} Brightness Temperature IR | {hour[:2]}:{hour[2:]} UTC {str(day).zfill(2)}/{str(month).zfill(2)}/{str(year)}\n{s_ID} {storm_name} | Satellite: {satellite} | Max center temp: {max_bt_celsius:.2f}°C')
+        ax.set_title(f'MCFETCH Band {str(band).zfill(2)} Brightness Temperature | {hour[:2]}:{hour[2:]} UTC {str(day).zfill(2)}/{str(month).zfill(2)}/{str(year)}\n({cdy}, {cdx}) | Satellite: {satellite} | Max center temp: {max_bt_celsius:.2f}°C')
 
         ax.set_xlabel('Longitude (degrees)')
         ax.set_ylabel('Latitude (degrees)')
@@ -6083,7 +6261,7 @@ async def mcfetch_nc(ctx, btkID, yr, hour, date, col:str):
         cbar.set_label(f"Brightness Temperature (°C) | Colorscale: {cmap_func.__name__}")
 
         plt.tight_layout()
-        image_path = f'mcfetch_nc.png'
+        image_path = f'mcfetch_nc{random.randint(1, 100)}.png'
         plt.savefig(image_path, format='png', bbox_inches='tight')
         plt.close()
 
@@ -6101,6 +6279,13 @@ async def mcfetch_nc(ctx, btkID, yr, hour, date, col:str):
     else:
         await ctx.data(f"Request unfortunately failed.")
         return
+
+@bot.command(name='cmap_help')
+async def cmap_help(ctx):
+    import cmap_counter
+
+    await ctx.send(f"List of IR colorscales: {cmap_counter.ir}\n\nList of WV colorscales: {cmap_counter.wv}")
+    
 
 @bot.command(name='mcfetch_help')
 async def mcfetch_help(ctx):
