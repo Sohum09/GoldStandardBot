@@ -6030,23 +6030,22 @@ async def mcfetch_nc(ctx, btkID, yr, hour, date, col:str):
             await ctx.send("The mcfetch file either does not exist or inputs were incorrect. Try again or use gridsat instead.")
             return
         await ctx.send("Successful response, plotting...")
-        data = nc_data['data'].squeeze().where(nc_data['data'] < 1e9)
+        data = nc_data['data'].squeeze()
         if satellite in ['GOES7']:
             data /= 10
-        lat = nc_data['lat'].where(nc_data['lat'] < 1e9)
-        lon = nc_data['lon'].where(nc_data['lon'] < 1e9)
+        lat = nc_data['lat']
+        lon = nc_data['lon']
 
         projection = ccrs.PlateCarree() if idl==False else ccrs.PlateCarree(central_longitude=180)
         plt.figure(figsize=(10, 8))
         ax = plt.axes(projection=projection)
-        data = np.squeeze(data)  # Ensure shape is (SIZE, SIZE)
+        #data = np.squeeze(data)  # Ensure shape is (SIZE, SIZE)
 
         # Slice the region within ±1° around the center
         subset = data.where((lat >= cdy - 1) & (lat <= cdy + 1) &
                             (lon >= cdx - 1) & (lon <= cdx + 1))
 
-        # Mask invalid values and find max
-        valid_pixels = subset.where(subset < 1e9)
+        valid_pixels = subset
         max_bt_kelvin = valid_pixels.max().item()
         max_bt_celsius = max_bt_kelvin - 273.15
 
@@ -6068,19 +6067,36 @@ async def mcfetch_nc(ctx, btkID, yr, hour, date, col:str):
         # Convert the seconds since epoch to a datetime object
         datetime_obj = datetime.datetime(1970, 1, 1, 0, 0, 0, tzinfo=datetime.timezone.utc) + datetime.timedelta(seconds=seconds_since_epoch)
         time_string = datetime_obj.strftime('%H:%M')
-        
+        date_string = datetime_obj.strftime('%d/%m/%Y')
         if idl:
             adjusted_cdx = (cdx + 180) % 360  # Wrap to 0–360 if necessary
         else:
             adjusted_cdx = cdx
         ax.set_extent([adjusted_cdx - extent_margin, adjusted_cdx + extent_margin, cdy - extent_margin, cdy + extent_margin], crs=projection)
 
-        pcolor = ax.pcolormesh(lon, lat, data, cmap=cmap, vmax=vmax, vmin=vmin, transform=projection)
+        #----DEBUG-----
+        
+        # Convert to NumPy arrays
+        lat_np = np.asarray(lat.values, dtype=float)
+        lon_np = np.asarray(lon.values, dtype=float)
+        data_np = np.asarray(data.values.squeeze(), dtype=float)
+
+        # Fill invalid coords
+        bad = ~(np.isfinite(lat_np) & np.isfinite(lon_np))
+        if bad.any():
+            # Hide data in those cells
+            data_np[bad] = np.nan
+            # Fill lat/lon so pcolormesh doesn't crash
+            # Option 1: nearest neighbor fill (safe for Cartopy)
+            lat_np[bad] = np.interp(np.flatnonzero(bad), np.flatnonzero(~bad), lat_np[~bad])
+            lon_np[bad] = np.interp(np.flatnonzero(bad), np.flatnonzero(~bad), lon_np[~bad])
+
+        pcolor = ax.pcolormesh(lon_np, lat_np, data_np, cmap=cmap, vmax=vmax, vmin=vmin, transform=projection)
 
         ax.add_feature(cfeature.COASTLINE, linewidth=1, color="c")
         ax.add_feature(cfeature.BORDERS, color="w", linewidth=0.75)
         
-        ax.set_title(f'MCFETCH Band {str(bandIRMapping[satellite]).zfill(2)} Brightness Temperature IR | {time_string} UTC {str(day).zfill(2)}/{str(month).zfill(2)}/{str(year)}\n{s_ID} {storm_name} | Satellite: {satellite} | Max center temp: {max_bt_celsius:.2f}°C')
+        ax.set_title(f'MCFETCH Band {str(bandIRMapping[satellite]).zfill(2)} Brightness Temperature IR | {time_string} UTC {date_string}\n{s_ID} {storm_name} | Satellite: {satellite} | Max center temp: {max_bt_celsius:.2f}°C')
 
         ax.set_xlabel('Longitude (degrees)')
         ax.set_ylabel('Latitude (degrees)')
@@ -6201,23 +6217,38 @@ async def mcfetch_pro(ctx, satellite, band, cdy:float, cdx:float, hour, date, co
             await ctx.send("The mcfetch file either does not exist or inputs were incorrect. Try again or use gridsat instead.")
             return
         await ctx.send("Successful response, plotting...")
-        data = nc_data['data'].squeeze().where(nc_data['data'] < 1e9)
+        data = nc_data['data'].squeeze()
         if satellite in ['GOES7']:
             data /= 10
-        lat = nc_data['lat'].where(nc_data['lat'] < 1e9)
-        lon = nc_data['lon'].where(nc_data['lon'] < 1e9)
+        lat = nc_data['lat']
+        lon = nc_data['lon']
 
+        import datetime
+        # Access the 'time' variable and get its value
+        time_value = nc_data['time'].values
+
+        # Convert the time value (seconds since epoch) to a datetime object
+        # The time variable has a 'units' attribute indicating it's seconds since 1970-1-1 0:0:0
+        # We need to convert the seconds since epoch to a timedelta and add it to the epoch start
+        epoch_start = np.datetime64('1970-01-01T00:00:00Z')
+        time_difference = time_value[0] - epoch_start
+        seconds_since_epoch = time_difference.astype('timedelta64[s]').item().total_seconds()
+
+        # Convert the seconds since epoch to a datetime object
+        datetime_obj = datetime.datetime(1970, 1, 1, 0, 0, 0, tzinfo=datetime.timezone.utc) + datetime.timedelta(seconds=seconds_since_epoch)
+        time_string = datetime_obj.strftime('%H:%M')
+        date_string = datetime_obj.strftime('%d/%m/%Y')
         projection = ccrs.PlateCarree() if idl==False else ccrs.PlateCarree(central_longitude=180)
         plt.figure(figsize=(10, 8))
         ax = plt.axes(projection=projection)
-        data = np.squeeze(data)  # Ensure shape is (SIZE, SIZE)
+        #data = np.squeeze(data)  # Ensure shape is (SIZE, SIZE)
 
         # Slice the region within ±1° around the center
         subset = data.where((lat >= cdy - 1) & (lat <= cdy + 1) &
                             (lon >= cdx - 1) & (lon <= cdx + 1))
 
         # Mask invalid values and find max
-        valid_pixels = subset.where(subset < 1e9)
+        valid_pixels = subset
         max_bt_kelvin = valid_pixels.max().item()
         max_bt_celsius = max_bt_kelvin - 273.15
 
@@ -6230,12 +6261,29 @@ async def mcfetch_pro(ctx, satellite, band, cdy:float, cdx:float, hour, date, co
             adjusted_cdx = cdx
         ax.set_extent([adjusted_cdx - extent_margin, adjusted_cdx + extent_margin, cdy - extent_margin, cdy + extent_margin], crs=projection)
 
-        pcolor = ax.pcolormesh(lon, lat, data, cmap=cmap, vmax=vmax, vmin=vmin, transform=projection)
+        #----DEBUG-----
+        
+        # Convert to NumPy arrays
+        lat_np = np.asarray(lat.values, dtype=float)
+        lon_np = np.asarray(lon.values, dtype=float)
+        data_np = np.asarray(data.values.squeeze(), dtype=float)
+
+        # Fill invalid coords
+        bad = ~(np.isfinite(lat_np) & np.isfinite(lon_np))
+        if bad.any():
+            # Hide data in those cells
+            data_np[bad] = np.nan
+            # Fill lat/lon so pcolormesh doesn't crash
+            # Option 1: nearest neighbor fill (safe for Cartopy)
+            lat_np[bad] = np.interp(np.flatnonzero(bad), np.flatnonzero(~bad), lat_np[~bad])
+            lon_np[bad] = np.interp(np.flatnonzero(bad), np.flatnonzero(~bad), lon_np[~bad])
+
+        pcolor = ax.pcolormesh(lon_np, lat_np, data_np, cmap=cmap, vmax=vmax, vmin=vmin, transform=projection)
 
         ax.add_feature(cfeature.COASTLINE, linewidth=1, color="c")
         ax.add_feature(cfeature.BORDERS, color="w", linewidth=0.75)
         
-        ax.set_title(f'MCFETCH Band {str(band).zfill(2)} Brightness Temperature | {hour[:2]}:{hour[2:]} UTC {str(day).zfill(2)}/{str(month).zfill(2)}/{str(year)}\n({cdy}, {cdx}) | Satellite: {satellite} | Max center temp: {max_bt_celsius:.2f}°C')
+        ax.set_title(f'MCFETCH Band {str(band).zfill(2)} Brightness Temperature | {time_string} UTC {date_string}\n({cdy}, {cdx}) | Satellite: {satellite} | Max center temp: {max_bt_celsius:.2f}°C')
 
         ax.set_xlabel('Longitude (degrees)')
         ax.set_ylabel('Latitude (degrees)')
