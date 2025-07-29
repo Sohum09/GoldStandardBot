@@ -271,9 +271,9 @@ async def btk(ctx, btkID:str, yr:str, plotter=''):
         btkID = _00x_to_xx00(btkID)
 
     if btkID[:2] in ['sh', 'wp', 'io']:
-        btkUrl = f'https://www.natyphoon.top/atcf/temp/b{btkID}{yr}.dat'
+        btkUrl = f'https://www.emc.ncep.noaa.gov/gc_wmb/vxt/DECKS/b{btkID}{yr}.dat'
     else:
-        btkUrl = f'https://www.natyphoon.top/atcf/temp/b{btkID}{yr}.dat'
+        btkUrl = f'https://www.emc.ncep.noaa.gov/gc_wmb/vxt/DECKS/b{btkID}{yr}.dat'
     await ctx.send(btkUrl)
     btk_data = fetch_url(btkUrl)
     parsed_data = parse_data(btk_data)
@@ -1099,13 +1099,13 @@ async def tcpass(ctx, btkID: str):
     if btkID[:2] in ['sh', 'wp', 'io']:
         if btkID[:2] == 'sh':
             if basinmonth >= 7:
-                btkUrl = f'https://www.natyphoon.top/atcf/temp/b{btkID}{basinYear+1}.dat'
+                btkUrl = f'https://www.emc.ncep.noaa.gov/gc_wmb/vxt/DECKS/b{btkID}{basinYear+1}.dat'
             else:
-                btkUrl = f'https://www.natyphoon.top/atcf/temp/b{btkID}{basinYear}.dat'
+                btkUrl = f'https://www.emc.ncep.noaa.gov/gc_wmb/vxt/DECKS/b{btkID}{basinYear}.dat'
         else:
-            btkUrl = f'https://www.natyphoon.top/atcf/temp/b{btkID}{basinYear}.dat'
+            btkUrl = f'https://www.emc.ncep.noaa.gov/gc_wmb/vxt/DECKS/b{btkID}{basinYear}.dat'
     else:
-        btkUrl = f'https://www.natyphoon.top/atcf/temp/b{btkID}{basinYear}.dat'
+        btkUrl = f'https://www.emc.ncep.noaa.gov/gc_wmb/vxt/DECKS/b{btkID}{basinYear}.dat'
 
     btk_data = fetch_url(btkUrl)
     parsed_data = parse_data(btk_data)
@@ -1326,13 +1326,13 @@ async def tchp(ctx, btkID:str):
     if btkID[:2] in ['sh', 'wp', 'io']:
         if btkID[:2] == 'sh':
             if basinmonth >= 7:
-                btkUrl = f'https://www.natyphoon.top/atcf/temp/b{btkID}{basinYear+1}.dat'
+                btkUrl = f'https://www.emc.ncep.noaa.gov/gc_wmb/vxt/DECKS/b{btkID}{basinYear+1}.dat'
             else:
-                btkUrl = f'https://www.natyphoon.top/atcf/temp/b{btkID}{basinYear}.dat'
+                btkUrl = f'https://www.emc.ncep.noaa.gov/gc_wmb/vxt/DECKS/b{btkID}{basinYear}.dat'
         else:
-            btkUrl = f'https://www.natyphoon.top/atcf/temp/b{btkID}{basinYear}.dat'
+            btkUrl = f'https://www.emc.ncep.noaa.gov/gc_wmb/vxt/DECKS/b{btkID}{basinYear}.dat'
     else:
-        btkUrl = f'https://www.natyphoon.top/atcf/temp/b{btkID}{basinYear}.dat'
+        btkUrl = f'https://www.emc.ncep.noaa.gov/gc_wmb/vxt/DECKS/b{btkID}{basinYear}.dat'
 
     btk_data = fetch_url(btkUrl)
     parsed_data = parse_data(btk_data)
@@ -1661,13 +1661,13 @@ async def tcsst(ctx, btkID: str):
     if btkID[:2] in ['sh', 'wp', 'io']:
         if btkID[:2] == 'sh':
             if basinmonth >= 7:
-                btkUrl = f'https://www.natyphoon.top/atcf/temp/b{btkID}{basinYear+1}.dat'
+                btkUrl = f'https://www.emc.ncep.noaa.gov/gc_wmb/vxt/DECKS/b{btkID}{basinYear+1}.dat'
             else:
-                btkUrl = f'https://www.natyphoon.top/atcf/temp/b{btkID}{basinYear}.dat'
+                btkUrl = f'https://www.emc.ncep.noaa.gov/gc_wmb/vxt/DECKS/b{btkID}{basinYear}.dat'
         else:
-            btkUrl = f'https://www.natyphoon.top/atcf/temp/b{btkID}{basinYear}.dat'
+            btkUrl = f'https://www.emc.ncep.noaa.gov/gc_wmb/vxt/DECKS/b{btkID}{basinYear}.dat'
     else:
-        btkUrl = f'https://www.natyphoon.top/atcf/temp/b{btkID}{basinYear}.dat'
+        btkUrl = f'https://www.emc.ncep.noaa.gov/gc_wmb/vxt/DECKS/b{btkID}{basinYear}.dat'
 
     btk_data = fetch_url(btkUrl)
     parsed_data = parse_data(btk_data)
@@ -2022,7 +2022,7 @@ async def ersst(ctx, month:int, year:int):
         return
     
     month_f = str(month).zfill(2)
-    
+    '''
     opener = build_opener()
     filelist = [
         f'https://data.rda.ucar.edu/ds277.9/ersst.v5.nc/ersst.v5.{year}{month_f}.nc'
@@ -2037,7 +2037,7 @@ async def ersst(ctx, month:int, year:int):
         outfile.write(infile.read())
         outfile.close()
         sys.stdout.write("done\n")
-    
+    '''
     def image_to_hex_array(image_path, x_range, y_coord, exclude_colors):
         # Open the image
         img = Image.open(image_path)
@@ -2085,11 +2085,11 @@ async def ersst(ctx, month:int, year:int):
     
     url = f"https://www.ncei.noaa.gov/pub/data/cmb/ersst/v5/netcdf/ersst.v5.{year}{month_f}.nc"
     destination = f'ersst.v5.{year}{month_f}.nc'
-    '''
+    
     response = requests.get(url)
     with open(destination, 'wb') as file:
         file.write(response.content)
-    '''
+    
     #offset_value =  -0.009103 * year + 18.19 old algorithm if the new one goes wrong
     
     if year < 1901:
@@ -3724,13 +3724,13 @@ async def smap(ctx, btkID, nodeType:str):
     if btkID[:2] in ['sh', 'wp', 'io']:
         if btkID[:2] == 'sh':
             if basinmonth >= 7:
-                btkUrl = f'https://www.natyphoon.top/atcf/temp/b{btkID}{basinYear+1}.dat'
+                btkUrl = f'https://www.emc.ncep.noaa.gov/gc_wmb/vxt/DECKS/b{btkID}{basinYear+1}.dat'
             else:
-                btkUrl = f'https://www.natyphoon.top/atcf/temp/b{btkID}{basinYear}.dat'
+                btkUrl = f'https://www.emc.ncep.noaa.gov/gc_wmb/vxt/DECKS/b{btkID}{basinYear}.dat'
         else:
-            btkUrl = f'https://www.natyphoon.top/atcf/temp/b{btkID}{basinYear}.dat'
+            btkUrl = f'https://www.emc.ncep.noaa.gov/gc_wmb/vxt/DECKS/b{btkID}{basinYear}.dat'
     else:
-        btkUrl = f'https://www.natyphoon.top/atcf/temp/b{btkID}{basinYear}.dat'
+        btkUrl = f'https://www.emc.ncep.noaa.gov/gc_wmb/vxt/DECKS/b{btkID}{basinYear}.dat'
 
     btk_data = fetch_url(btkUrl)
     parsed_data = parse_data(btk_data)
@@ -4335,9 +4335,9 @@ async def tcprofile_ssd(ctx, btkID:str, yr:str):
     await ctx.send("Please wait. Due to my terrible potato laptop, the image may take a while to generate.")
 
     if btkID[:2] in ['sh', 'wp', 'io']:
-        btkUrl = f'https://www.natyphoon.top/atcf/temp/b{btkID}{yr}.dat'
+        btkUrl = f'https://www.emc.ncep.noaa.gov/gc_wmb/vxt/DECKS/b{btkID}{yr}.dat'
     else:
-        btkUrl = f'https://www.natyphoon.top/atcf/temp/b{btkID}{yr}.dat'
+        btkUrl = f'https://www.emc.ncep.noaa.gov/gc_wmb/vxt/DECKS/b{btkID}{yr}.dat'
 
     btk_data = fetch_url(btkUrl)
     parsed_data = parse_data(btk_data)
@@ -4440,6 +4440,9 @@ async def tcprofile(ctx, btkID:str, yr:str):
     import matplotlib.dates as mdates
     from datetime import datetime
     import os
+    import matplotlib.style as mplstyle
+
+    mplstyle.use("dark_background") 
 
     btkID = btkID.upper()
     if btkID == 'BENTO':
@@ -4524,21 +4527,56 @@ async def tcprofile(ctx, btkID:str, yr:str):
 
     # Plotting Winds on the primary Y-axis (left)
     ax1.set_xlabel('Date and Time')
-    ax1.set_ylabel('Winds (Kts)', color='tab:blue')
-    ax1.plot(DateTimePlot, winds, color='tab:blue')
-    ax1.tick_params(axis='y', labelcolor='tab:blue')
-    plt.grid(True)
+    ax1.set_ylabel('Winds (Kts)', color='cyan')
+    ax1.plot(DateTimePlot, winds, color='cyan')
+    ax1.tick_params(axis='y', labelcolor='cyan')
+    #plt.grid(True)
     if int(yr) > 2002:
         # Create a secondary Y-axis (right) for Pressure
         ax2 = ax1.twinx()
-        ax2.set_ylabel('Pressure (hPa)', color='tab:red')
-        ax2.plot(DateTimePlot, pres, color='tab:red')
-        ax2.tick_params(axis='y', labelcolor='tab:red')
+        ax2.set_ylabel('Pressure (hPa)', color='orange')
+        ax2.plot(DateTimePlot, pres, color='orange')
+        ax2.tick_params(axis='y', labelcolor='orange')
 
     # Formatting date on the X-axis
-    date_form = DateFormatter('%Y-%m-%d')
-    ax1.xaxis.set_major_formatter(date_form)
-    ax1.xaxis.set_major_locator(mdates.HourLocator(interval=24))
+    import matplotlib.dates as mdates
+    import matplotlib.ticker as mticker
+
+    def custom_date_formatter(x, pos=None):
+        dt = mdates.num2date(x)
+        # If it's January 1st at 00Z, show MM-DD and year
+        if dt.month == 1 and dt.day == 1 and dt.hour == 0:
+            return dt.strftime('%d\n%d\m%Y')
+        # Otherwise, just show MM-DD
+        elif dt.hour == 0:
+            return dt.strftime('%d\n%m')
+        return ''  # No label for other hours (12Z handled separately if needed)
+
+    # --- X‑axis: 00Z labels only; 6‑hour gridlines ---
+    # Major ticks at 00 UTC each day
+    ax1.xaxis.set_major_locator(mdates.HourLocator(byhour=[0]))
+    ax1.xaxis.set_major_formatter(mticker.FuncFormatter(custom_date_formatter))
+
+    # Minor ticks at 06, 12, 18 UTC (so we don't double‑draw 00)
+    ax1.xaxis.set_minor_locator(mdates.HourLocator(byhour=[6, 12, 18]))
+    ax1.xaxis.set_minor_formatter(mticker.NullFormatter())  # no labels on minors
+
+    # Smaller labels; no rotation
+    ax1.tick_params(axis='x', which='major', labelsize=8, pad=2)
+    ax1.tick_params(axis='x', which='minor', length=2)
+
+    # Gridlines: stronger at 00Z (major), faint at 6‑hour minors
+    ax1.grid(True, which='major', axis='x', linestyle='-', linewidth=0.8, alpha=0.7)
+    ax1.grid(True, which='minor', axis='x', linestyle='--', linewidth=0.5, alpha=0.5)
+
+    # Keep existing y‑grid if you like (your earlier plt.grid(True) did both axes);
+    # If you've already called plt.grid(True) above and don't want double lines,
+    # comment that out or limit to y only:
+    ax1.grid(True, which='major', axis='y', alpha=0.7)
+
+    # Make 00Z labels bold
+    for lbl in ax1.get_xticklabels(which='major'):
+        lbl.set_fontweight('bold')
 
     #Building the function that calculates ACE...
     def calc_ACE(winds, timeCheck):
@@ -4552,11 +4590,8 @@ async def tcprofile(ctx, btkID:str, yr:str):
                 ace += (int(winds[i]) ** 2) / 10000
         return "{:.4f}".format(ace)
 
-    # Rotate and align the date labels so they look better
-    plt.setp(ax1.xaxis.get_majorticklabels(), rotation=45, ha="right")
-
     # Show the plot
-    plt.title(f'{btkID} {yr}', loc='center')
+    plt.title(f'{s_ID} {storm_name}', loc='center')
     plt.title(f'VMAX: {vmax} Kts', loc='left', fontsize=9)
     plt.title(f'ACE: {calc_ACE(winds, timeCheck)}', loc='right', fontsize=9)
     plt.tight_layout()
@@ -6015,9 +6050,8 @@ async def mcfetch_nc(ctx, btkID, yr, hour, date, col:str):
         url += '&coverage=NH'
     url += f'&size={size}+{size}'
 
-    await ctx.send("Downloading the requested file...")
-    edited_url = f'https://mcfetch.ssec.wisc.edu/cgi-bin/mcfetch?dkey=API_KEY&satellite={satellite}&band={bandIRMapping[satellite]}&output=NETCDF&date={year}-{str(month).zfill(2)}-{str(day).zfill(2)}&time={hour[:2]}:{hour[2:]}&lat={center_lat}+{center_lon}&mag=1+1&unit=TEMP'
-    await ctx.send(edited_url)
+    print("Downloading the requested file...")
+    print(url)
     
     import urllib3
     http = urllib3.PoolManager()
@@ -6029,7 +6063,7 @@ async def mcfetch_nc(ctx, btkID, yr, hour, date, col:str):
         except ValueError:
             await ctx.send("The mcfetch file either does not exist or inputs were incorrect. Try again or use gridsat instead.")
             return
-        await ctx.send("Successful response, plotting...")
+        print("Successful response, plotting...")
         data = nc_data['data'].squeeze()
         if satellite in ['GOES7']:
             data /= 10
@@ -6202,9 +6236,8 @@ async def mcfetch_pro(ctx, satellite, band, cdy:float, cdx:float, hour, date, co
         size = 500
     url += f'&size={size}+{size}'
 
-    await ctx.send("Downloading the requested file...")
-    edited_url = f'https://mcfetch.ssec.wisc.edu/cgi-bin/mcfetch?dkey=API_KEY&satellite={satellite}&band={band}&output=NETCDF&date={year}-{str(month).zfill(2)}-{str(day).zfill(2)}&time={hour[:2]}:{hour[2:]}&lat={center_lat}+{center_lon}&mag=1+1&unit=TEMP'
-    await ctx.send(edited_url)
+    print("Downloading the requested file...")
+    print(url)
     
     import urllib3
     http = urllib3.PoolManager()
@@ -6216,7 +6249,7 @@ async def mcfetch_pro(ctx, satellite, band, cdy:float, cdx:float, hour, date, co
         except ValueError:
             await ctx.send("The mcfetch file either does not exist or inputs were incorrect. Try again or use gridsat instead.")
             return
-        await ctx.send("Successful response, plotting...")
+        print("Successful response, plotting...")
         data = nc_data['data'].squeeze()
         if satellite in ['GOES7']:
             data /= 10
