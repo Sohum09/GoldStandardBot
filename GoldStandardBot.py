@@ -1289,6 +1289,170 @@ async def tcpass(ctx, btkID: str):
 
     os.remove(image_path)  
 
+@bot.command(name='gfs_streamlines')
+async def gfs_streamlines(ctx, btkID:str, mb:int=200):
+    import urllib3
+    from bs4 import BeautifulSoup
+    from datetime import datetime
+
+    btkID = btkID.lower()
+    def _00x_to_xx00(des):
+        convert_map = {"l": "al", "e": "ep", "c": "cp", "w":"wp", "a":"io", "b":"io", "s":"sh", "p":"sh"}
+        return convert_map[des[-1]] + des[:-1]
+
+    import re
+    if re.match(r"^\d{2}[a-z]$", btkID):    
+        btkID = _00x_to_xx00(btkID)
+
+    await ctx.send("Please wait. Due to my terrible potato laptop, the image may take a while to generate.")
+    urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+    http = urllib3.PoolManager(cert_reqs='CERT_NONE', assert_hostname=False)
+    #http = urllib3.PoolManager(cert_reqs='CERT_NONE')
+
+    def fetch_url(urlLink):
+        response = http.request('GET', urlLink)
+        return response.data.decode('utf-8')
+
+    def parse_data(html_content):
+        soup = BeautifulSoup(html_content, 'html.parser')
+        return soup.get_text()
+
+    basinDate = datetime.now()
+    basinmonth = basinDate.month
+    basinYear = basinDate.year
+    if btkID[:2] in ['sh', 'wp', 'io']:
+        if btkID[:2] == 'sh':
+            if basinmonth >= 7:
+                btkUrl = f'https://www.emc.ncep.noaa.gov/gc_wmb/vxt/DECKS/b{btkID}{basinYear+1}.dat'
+            else:
+                btkUrl = f'https://www.emc.ncep.noaa.gov/gc_wmb/vxt/DECKS/b{btkID}{basinYear}.dat'
+        else:
+            btkUrl = f'https://www.emc.ncep.noaa.gov/gc_wmb/vxt/DECKS/b{btkID}{basinYear}.dat'
+    else:
+        btkUrl = f'https://www.emc.ncep.noaa.gov/gc_wmb/vxt/DECKS/b{btkID}{basinYear}.dat'
+
+    btk_data = fetch_url(btkUrl)
+    parsed_data = parse_data(btk_data)
+    lines = parsed_data.split('\n')
+    cdx, cdy, DateTime, timeCheck = [], [], [], []
+    stormName = ""
+
+    for line in lines:
+        if line.strip():
+            parameters = line.split(',')
+            if parameters[6][-1] == 'S':
+                cdy.append((float(parameters[6][:-1].strip()) / 10) * -1)
+            else:
+                cdy.append(float(parameters[6][:-1].strip()) / 10)
+            if parameters[7][-1] == 'W':
+                cdx.append((float(parameters[7][:-1].strip()) / 10) * -1)
+            else:
+                cdx.append(float(parameters[7][:-1].strip()) / 10)
+            timeCheck.append((parameters[2][-2:].strip()))
+            date = parameters[2].strip()
+            date = f'{date[:4]}-{date[4:6]}-{date[6:8]} {timeCheck[-1]}:00:00'
+            DateTime.append(date)
+            stormName = parameters[27].strip()
+
+    await ctx.send("Storm located, generating grib data from NCEP NOMAD...")
+    centerX, centerY = cdx[-1], cdy[-1]
+    copyX = centerX + 360 if centerX < 0 else centerX
+    DateTime = list(dict.fromkeys(DateTime))
+    year, month, day, hour, minutes, seconds = map(int, DateTime[-2].replace('-', ' ').replace(':', ' ').split()) #Get the previous 6 hour slot to allow access to GFS model...
+    print(DateTime[-2])
+    url = f'https://nomads.ncep.noaa.gov/cgi-bin/filter_gfs_0p25.pl?dir=%2Fgfs.{year}{month:02d}{day:02d}%2F{hour:02d}%2Fatmos&file=gfs.t{hour:02d}z.pgrb2.0p25.f006&var_UGRD=on&var_VGRD=on&lev_{mb}_mb=on&lev_10_mb=on&subregion=&toplat={centerY+10}&leftlon={copyX-10}&rightlon={copyX+10}&bottomlat={centerY-10}'
+    
+    import requests
+    filename = 'gfs_data'
+    try:
+        response = requests.get(url, stream=True)
+        response.raise_for_status()  # Check for HTTP errors
+
+        with open(filename, 'wb') as f:
+            for chunk in response.iter_content(chunk_size=8192):
+                f.write(chunk)
+        print(f"Data successfully downloaded to {filename}")
+    except requests.exceptions.RequestException as e:
+        await ctx.send(f"An error occurred while downloading the data: {e}")
+        return
+
+    # This code downloads GFS data for a specific latitude and longitude.
+    # It constructs the URL for the GFS data, ensuring the longitude is in the correct range.
+    # It then uses the requests library to fetch the data and save it to a file.
+
+    import xarray as xr
+    try:
+        ds = xr.open_dataset(filename, engine='cfgrib')
+        print("Dataset loaded successfully.")
+    except Exception as e:
+        print(f"An error occurred while loading the dataset: {e}")
+
+    ds.to_netcdf('gfs_data.nc')
+    print("Data saved to gfs_data.nc")
+
+    u_wind, v_wind = ds['u'], ds['v']
+    longitude, latitude = ds['longitude'], ds['latitude']
+
+    import matplotlib.pyplot as plt
+    import cartopy.crs as ccrs
+    import cartopy.feature as cfeature
+    import matplotlib.style as mplstyle
+    mplstyle.use("dark_background") 
+
+    # Select data for input mb pressure level
+    u_200mb, v_200mb = u_wind.sel(isobaricInhPa=mb), v_wind.sel(isobaricInhPa=mb)
+    longitude = xr.where(longitude < 0, longitude + 180, longitude - 180)
+    fig = plt.figure(figsize=(10, 8))
+    ax = fig.add_subplot(1, 1, 1, projection=ccrs.PlateCarree(central_longitude=180))
+    ax.set_extent([longitude.min(), longitude.max(), latitude.min(), latitude.max()], crs=ccrs.PlateCarree(central_longitude=180))
+    from matplotlib import colors      
+    ax.add_feature(cfeature.COASTLINE, linewidth=1, color="c")
+    ax.add_feature(cfeature.BORDERS, color="w", linewidth=0.75)
+    ax.add_feature(cfeature.LAND, facecolor=colors.to_rgba("c", 0.25))
+
+    # Plot streamlines
+    ax.streamplot(longitude, latitude, u_200mb.values, v_200mb.values, color='w',transform=ccrs.PlateCarree(central_longitude=180))
+    ax.scatter(copyX, centerY, color='r', marker='x', s=100, zorder=7860, transform=ccrs.PlateCarree())
+
+    # Add coastlines and gridlines
+    ax.coastlines()
+    import matplotlib.ticker as mticker
+    from cartopy.mpl.gridliner import LONGITUDE_FORMATTER, LATITUDE_FORMATTER
+    ax.set_xlabel('Longitude (degrees)')
+    ax.set_ylabel('Latitude (degrees)')
+    gls = ax.gridlines(draw_labels=True, linewidth=0.5, linestyle='--', color='gray')
+    gls.top_labels = False
+    gls.right_labels = False
+    gls.xlocator = mticker.FixedLocator(range(-180, 181, 2))  # Control gridline spacing
+    gls.ylocator = mticker.FixedLocator(range(-90, 91, 2))
+    #gl.xformatter = LONGITUDE_FORMATTER
+    gls.yformatter = LATITUDE_FORMATTER
+    gls.xlabel_style = {'size': 8, 'color': 'w'}  # Customize label style
+    gls.ylabel_style = {'size': 8, 'color': 'w'}
+
+    import os
+    ax.set_title(f"GFS Streamlines at {mb} mb for {btkID.upper()} {stormName}\nATCF Time: {DateTime[-1]} | GFS Run Time: {DateTime[-2]}, Forecast Tau +6", fontsize=12, color='w')
+    plt.tight_layout()
+    image_path = f'{btkID}_SST_Map.png'
+    plt.savefig(image_path, format='png', bbox_inches='tight')
+    plt.close()
+
+    async def send_image(image_path):
+        with open(image_path, 'rb') as image_file:
+            image = discord.File(image_file)
+            await ctx.send(file=image)
+    
+    # Send the generated image
+    await send_image(image_path)
+
+    # Remove the temporary image file
+    os.remove(image_path)
+    import glob
+    os.remove(filename)  # Clean up the downloaded file
+    paths_to_remove = sorted(glob.glob('gfs_data.*'))
+    for path in paths_to_remove:
+        os.remove(path)  # Clean up any additional files created by cfgrib
+
 @bot.command(name='tchp')
 async def tchp(ctx, btkID:str):
     import urllib3
