@@ -2772,8 +2772,8 @@ async def ibtracs(ctx, btkID:str, yr:str):
         LineY.append(float(cdy[i]))
 
     plt.plot(LineX, LineY, color="w", linestyle="-")
-    plt.text(LineX[0], LineY[0]+0.5, f'{DateTime[0]}')
-    plt.text(LineX[len(LineX)-1], LineY[len(LineX)-1]+0.5, f'{DateTime[len(LineX)-1]}')
+    plt.text(LineX[0], LineY[0]*1.05, f'{DateTime[0]}')
+    plt.text(LineX[len(LineX)-1], LineY[len(LineX)-1]*1.05, f'{DateTime[len(LineX)-1]}')
 
     #Applying final touches...
     print("Printing image...")
@@ -8152,7 +8152,7 @@ async def reconplot(ctx, basin:str, aircraftType:str):
         ax.barbs(lon, lat, u, v, length=7, color=color, transform=ccrs.PlateCarree())
         ax.text(lon, lat+0.01, f'{int(wind_speed)} FL/{sfmr} SFC\n{xtrap_val}', transform=ccrs.PlateCarree(), fontsize=8, ha='center', va='center')
         if sfmr != '' and flag==1:
-            ax.text(lon-0.03, lat+0.01, '!', color='r', transform=ccrs.PlateCarree(), fontsize=15, ha='center', va='center')
+            ax.text(lon, lat, '!', color='r', transform=ccrs.PlateCarree(), fontsize=15, ha='center', va='center')
 
     maxLat, minLat, maxLong, minLong = -999, 999, -999, 999
     for data_line in reconHDOB:
