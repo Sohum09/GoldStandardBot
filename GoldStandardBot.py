@@ -1289,6 +1289,97 @@ async def tcpass(ctx, btkID: str):
 
     os.remove(image_path)  
 
+@bot.command(name='uwind_anomaly')
+async def uwind_anomaly(ctx, hour:str, date:str, pressure_level=850):
+    import xarray as xr
+    import matplotlib.pyplot as plt
+    import cartopy.crs as ccrs
+    import cartopy.feature as cfeature
+    import matplotlib.style as mplstyle
+    import matplotlib.colors as mcolors
+    import requests
+    import os
+    mplstyle.use("dark_background")
+
+    day, month, year = str(date).split('/')[0], str(date).split('/')[1], str(date).split('/')[2]
+    download_url = f'https://psl.noaa.gov/cgi-bin/mddb2/plot.pl?doplot=0&varID=158978&fileID=0&itype=0&variable=uwnd&levelType=Pressure%20Levels&level_units=millibar&level={pressure_level}.0&timetype=4x&fileTimetype=4x&year1={year}&month1={month}&day1={day}&hr1={hour.zfill(2)}%20Z&year2={year}&month2={month}&day2={day}&hr2={hour.zfill(2)}%20Z&region=Custom&area_north=20&area_west=0&area_east=360&area_south=-20&centerLat=0.0&centerLon=270.0'
+    filename = 'Test_ncep_uwind_anomaly.nc'
+    await ctx.send("Downloading relevant data...")
+    try:
+        response = requests.get(download_url, stream=True)
+        response.raise_for_status()  # Check for HTTP errors
+
+        with open(filename, 'wb') as f:
+            for chunk in response.iter_content(chunk_size=8192):
+                f.write(chunk)
+        print(f"Data successfully downloaded to {filename}")
+    except requests.exceptions.RequestException as e:
+        await ctx.send(f"An error occurred while downloading the data: {e}")
+        return
+    await ctx.send("Data downloaded, plotting...")
+    ds = xr.open_dataset(filename)
+
+    zonal_mean = ds.uwnd.mean(dim='lon')
+    lon, lat = ds.lon, ds.lat
+    uwind_anomaly = ds.uwnd - zonal_mean
+    uwind_anomaly_2d = uwind_anomaly.squeeze()
+
+    fig, ax = plt.subplots(subplot_kw={'projection': ccrs.PlateCarree(central_longitude=180)}, figsize=(20, 20))
+
+    ax.add_feature(cfeature.BORDERS, linewidth=0.5, zorder=1001)
+    ax.add_feature(cfeature.LAND, facecolor='#2e2e2e', edgecolor='white', zorder=1000)
+
+    gl = ax.gridlines(draw_labels=True, linewidth=0.5, linestyle='--', color='gray')
+    gl.top_labels = False   # suppress top labels
+    gl.right_labels = False  # suppress right labels
+    ax.set_extent([lon.min(), lon.max(), lat.min(), lat.max()], crs=ccrs.PlateCarree(central_longitude = 180))
+
+    # Normalization: center at 0
+    norm = mcolors.TwoSlopeNorm(
+        vmin=uwind_anomaly_2d.min(),
+        vcenter=0,
+        vmax=uwind_anomaly_2d.max()
+    )
+
+    mesh = ax.pcolormesh(
+        lon, lat, uwind_anomaly_2d,
+        cmap='coolwarm',
+        norm = norm,
+        transform=ccrs.PlateCarree(),
+        shading='auto'
+    )
+
+    # Shift longitude coords
+    uwind_anomaly_shifted = uwind_anomaly_2d.assign_coords(
+        lon=(((uwind_anomaly_2d.lon + 180) % 360) - 180)
+    ).sortby("lon")
+
+    # Highlight thresholds
+    for val, color in zip([-20, -15, -10, -5, 0, 5, 10, 15, 20], ["magenta", "#0717f7", "blue", "#7982f7", "grey", "#f77979", "red", "#b81414", "crimson"]):
+        cs = ax.contour(uwind_anomaly_shifted.lon, uwind_anomaly_shifted.lat, uwind_anomaly_shifted, levels=[val], colors=[color], linewidths=2, transform=ccrs.PlateCarree())
+        ax.clabel(cs, fmt={val: f"{val}"}, inline=True, fontsize=10)
+        
+    plt.colorbar(mesh, ax=ax, orientation='horizontal', pad=0.03, shrink=0.6, label='U-wind anomaly (m/s)')
+
+    plt.title(f'NCEP NCAR 2.5deg {pressure_level} hPa U-wind anomaly over 20N-20S', fontsize=16, loc='left')
+    plt.title(f'{year}-{month.zfill(2)}-{day.zfill(2)} {hour.zfill(2)}00 UTC', fontsize=16, loc='right')
+    plt.tight_layout()
+    image_path = f'uwind_Map.png'
+    plt.savefig(image_path, format='png', bbox_inches='tight')
+    plt.close()
+
+    async def send_image(image_path):
+        with open(image_path, 'rb') as image_file:
+            image = discord.File(image_file)
+            await ctx.send(file=image)
+
+    # Send the generated image
+    await send_image(image_path)
+
+    # Remove the temporary image file
+    os.remove(image_path)
+    
+
 @bot.command(name='gfs_streamlines')
 async def gfs_streamlines(ctx, btkID:str, mb:int=200):
     import urllib3
@@ -2772,8 +2863,8 @@ async def ibtracs(ctx, btkID:str, yr:str):
         LineY.append(float(cdy[i]))
 
     plt.plot(LineX, LineY, color="w", linestyle="-")
-    plt.text(LineX[0], LineY[0]*1.05, f'{DateTime[0]}')
-    plt.text(LineX[len(LineX)-1], LineY[len(LineX)-1]*1.05, f'{DateTime[len(LineX)-1]}')
+    plt.text(LineX[0], LineY[0], f'{DateTime[0]}')
+    plt.text(LineX[len(LineX)-1], LineY[len(LineX)-1], f'{DateTime[len(LineX)-1]}')
 
     #Applying final touches...
     print("Printing image...")
@@ -4484,6 +4575,17 @@ async def tcprofile_ssd(ctx, btkID:str, yr:str):
     import urllib3
     from bs4 import BeautifulSoup
     import os
+    import matplotlib.style as mplstyle
+
+    mplstyle.use("dark_background") 
+
+    def _00x_to_xx00(des):
+        convert_map = {"L": "AL", "E": "EP", "C": "CP", "W":"WP", "A":"IO", "B":"IO", "S":"SH", "P":"SH"}
+        return convert_map[des[-1]] + des[:-1]
+
+    import re
+    if re.match(r"^\d{2}[A-Z]$", btkID.upper()):    
+        btkID = _00x_to_xx00(btkID.upper())
 
     urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
     http = urllib3.PoolManager(cert_reqs='CERT_NONE', assert_hostname=False)
@@ -4498,10 +4600,10 @@ async def tcprofile_ssd(ctx, btkID:str, yr:str):
 
     await ctx.send("Please wait. Due to my terrible potato laptop, the image may take a while to generate.")
 
-    if btkID[:2] in ['sh', 'wp', 'io']:
-        btkUrl = f'https://www.emc.ncep.noaa.gov/gc_wmb/vxt/DECKS/b{btkID}{yr}.dat'
+    if btkID[:2].lower() in ['sh', 'wp', 'io']:
+        btkUrl = f'https://www.emc.ncep.noaa.gov/gc_wmb/vxt/DECKS/b{btkID.lower()}{yr}.dat'
     else:
-        btkUrl = f'https://www.emc.ncep.noaa.gov/gc_wmb/vxt/DECKS/b{btkID}{yr}.dat'
+        btkUrl = f'https://www.emc.ncep.noaa.gov/gc_wmb/vxt/DECKS/b{btkID.lower()}{yr}.dat'
 
     btk_data = fetch_url(btkUrl)
     parsed_data = parse_data(btk_data)
@@ -4523,7 +4625,6 @@ async def tcprofile_ssd(ctx, btkID:str, yr:str):
                 cdx.append((float(parameters[7][:-1].strip()) / 10)*-1)
             else:
                 cdx.append(float(parameters[7][:-1].strip()) / 10)
-
             winds.append(int(parameters[8].strip()))
             if (vmax< winds[-1]):
                 vmax = winds[-1]
@@ -4532,39 +4633,76 @@ async def tcprofile_ssd(ctx, btkID:str, yr:str):
             date = parameters[2].strip()
             date = f'{date[:4]}-{date[4:6]}-{date[6:8]} {timeCheck[-1]}:00:00'
             DateTime.append(date)
-            pres.append(int(parameters[9].strip()))
+            if int(parameters[9].strip()) == 0:
+                pres.append(1010)
+            else:
+                pres.append(int(parameters[9].strip()))
             r34.append(int(parameters[11].strip()))
             stormName = parameters[27].strip()
 
     #-------------------------------DEBUG INFORMATION-----------------------------------
-    print(cdx, "\n", cdy, "\n", winds, "\n", status, "\n", timeCheck, "\n", r34, "\n", DateTime)
+    # print(cdx, "\n", cdy, "\n", winds, "\n", status, "\n", timeCheck, "\n", r34, "\n", DateTime)
     #-----------------------------------------------------------------------------------
 
     # Convert string datetime to datetime objects
-    DateTime = [datetime.datetime.strptime(date, "%Y-%m-%d %H:%M:%S") for date in DateTime]
+    from datetime import datetime
+    DateTimePlot = [datetime.strptime(date, "%Y-%m-%d %H:%M:%S") for date in DateTime]
 
     # Create a figure and axis
     fig, ax1 = plt.subplots()
 
     # Plotting Winds on the primary Y-axis (left)
     ax1.set_xlabel('Date and Time')
-    ax1.set_ylabel('Winds (Kts)', color='tab:blue')
-    ax1.plot(DateTime, winds, color='tab:blue')
-    ax1.tick_params(axis='y', labelcolor='tab:blue')
-
-    # Create a secondary Y-axis (right) for Pressure
-    ax2 = ax1.twinx()
-    ax2.set_ylabel('Pressure (hPa)', color='tab:red')
-    ax2.plot(DateTime, pres, color='tab:red')
-    ax2.tick_params(axis='y', labelcolor='tab:red')
+    ax1.set_ylabel('Winds (Kts)', color='cyan')
+    ax1.plot(DateTimePlot, winds, color='cyan')
+    ax1.tick_params(axis='y', labelcolor='cyan')
+    #plt.grid(True)
+    if int(yr) > 2002:
+        # Create a secondary Y-axis (right) for Pressure
+        ax2 = ax1.twinx()
+        ax2.set_ylabel('Pressure (hPa)', color='orange')
+        ax2.plot(DateTimePlot, pres, color='orange')
+        ax2.tick_params(axis='y', labelcolor='orange')
 
     # Formatting date on the X-axis
-    date_form = DateFormatter('%Y-%m-%d')
-    ax1.xaxis.set_major_formatter(date_form)
-    ax1.xaxis.set_major_locator(mdates.HourLocator(interval=24))
+    import matplotlib.dates as mdates
+    import matplotlib.ticker as mticker
 
-    # Rotate and align the date labels so they look better
-    plt.setp(ax1.xaxis.get_majorticklabels(), rotation=45, ha="right")
+    def custom_date_formatter(x, pos=None):
+        dt = mdates.num2date(x)
+        # If it's January 1st at 00Z, show MM-DD and year
+        if dt.month == 1 and dt.day == 1 and dt.hour == 0:
+            return dt.strftime('%d\n%d\m%Y')
+        # Otherwise, just show MM-DD
+        elif dt.hour == 0:
+            return dt.strftime('%d\n%m')
+        return ''  # No label for other hours (12Z handled separately if needed)
+
+    # --- X‑axis: 00Z labels only; 6‑hour gridlines ---
+    # Major ticks at 00 UTC each day
+    ax1.xaxis.set_major_locator(mdates.HourLocator(byhour=[0]))
+    ax1.xaxis.set_major_formatter(mticker.FuncFormatter(custom_date_formatter))
+
+    # Minor ticks at 06, 12, 18 UTC (so we don't double‑draw 00)
+    ax1.xaxis.set_minor_locator(mdates.HourLocator(byhour=[6, 12, 18]))
+    ax1.xaxis.set_minor_formatter(mticker.NullFormatter())  # no labels on minors
+
+    # Smaller labels; no rotation
+    ax1.tick_params(axis='x', which='major', labelsize=8, pad=2)
+    ax1.tick_params(axis='x', which='minor', length=2)
+
+    # Gridlines: stronger at 00Z (major), faint at 6‑hour minors
+    ax1.grid(True, which='major', axis='x', linestyle='-', linewidth=0.8, alpha=0.7)
+    ax1.grid(True, which='minor', axis='x', linestyle='--', linewidth=0.5, alpha=0.5)
+
+    # Keep existing y‑grid if you like (your earlier plt.grid(True) did both axes);
+    # If you've already called plt.grid(True) above and don't want double lines,
+    # comment that out or limit to y only:
+    ax1.grid(True, which='major', axis='y', alpha=0.7)
+
+    # Make 00Z labels bold
+    for lbl in ax1.get_xticklabels(which='major'):
+        lbl.set_fontweight('bold')
 
     def calc_ACE(winds, timeCheck):
         ace = 0
@@ -5953,6 +6091,60 @@ async def reconfl(ctx, winds:float, htOrPres:int):
         converted = "{:.2f}".format(converted)
         await ctx.send(f"The converted FL value = {converted} Kts")
 
+@bot.command(name='jwt')
+async def jwt(ctx, rmw_nm:float, windspeed:float):
+    import matplotlib.pyplot as plt
+    import matplotlib.style as mplstyle
+    import numpy as np
+    import os
+    mplstyle.use("dark_background") 
+
+    rmw_km = rmw_nm * 1.852
+    def rmw_curve_ratio(fl_rmw):
+        a, b, c = 1.159321, -0.097488, 0.006063
+        R = np.asarray(fl_rmw, dtype=float)
+        t = np.log(R)
+        return  (a + b*t + c*t**2) * (0.9/0.885)
+    
+    ratio = rmw_curve_ratio(rmw_km)
+    windspeed_converted = windspeed * ratio
+    ratio = "{:.2f}".format(ratio)
+
+    R_values = np.linspace(1, max(100, rmw_km+5), 200)
+    y_values = rmw_curve_ratio(R_values)
+
+    plt.plot(R_values, y_values)
+
+    windspeed_converted = "{:.2f} kts".format(windspeed_converted)
+
+    # Add the x = ratio line
+    x_values = np.array([rmw_km, rmw_km])  # create an array with two identical values
+    y_values = np.array([0.8, 1.8])  # create an array with two values that span the y-axis
+    plt.plot(x_values, y_values, 'r--', label=f'FL-derived RMW = {rmw_nm:.2f} nm / {rmw_km:.2f} km\n700mb reduced Ratio (JWT et al. 2030+): {ratio}\nOriginal / Reduced Windspeed = {windspeed:.2f} kts / {windspeed_converted}')  # plot the line with a red dashed style
+    plt.xlim(0, max(100, rmw_km+5))  # set x-axis range to 0-100
+    plt.ylim(0.8, 1.2)  # set y-axis range to 
+    plt.xlabel("RMW (km)")
+    plt.ylabel("FL Reduction Ratio")
+    plt.grid(True)
+    plt.title("A log regression for JWT's new FL reduction Ratios")
+    plt.legend()
+    import random
+    plt.tight_layout()
+    image_path = f'jwt{random.randint(1, 100)}.png'
+    plt.savefig(image_path, format='png', bbox_inches='tight')
+    plt.close()
+
+    async def send_image(image_path):
+        with open(image_path, 'rb') as image_file:
+            image = discord.File(image_file)
+            await ctx.send(file=image)
+
+    # Send the generated image
+    await send_image(image_path)
+
+    # Remove the temporary image file
+    os.remove(image_path)
+
 @bot.command(name='mcfetch')
 async def mcfetch(ctx, satellite:str, band:str, latitude:float, longitude:float, time:str, day:int, month:int, year:int, mag1="", mag2="", zoom="", eu="", coverage=""):
     if zoom != "" and int(zoom) > 2000:
@@ -6206,7 +6398,7 @@ async def mcfetch_nc(ctx, btkID, yr, hour, date, col:str):
 
     url = f'https://mcfetch.ssec.wisc.edu/cgi-bin/mcfetch?dkey={random.choice(api_key)}&satellite={satellite}&band={bandIRMapping[satellite]}&output=NETCDF&date={year}-{str(month).zfill(2)}-{str(day).zfill(2)}&time={hour[:2]}:{hour[2:]}&lat={center_lat}+{center_lon}&mag=1+1&unit=TEMP'
 
-    if satellite in ['GOES16', 'GOES17', 'GOES18', 'GOES19', 'HIMAWARI8', 'HIMAWARI9']:
+    if satellite in ['GOES16', 'GOES17', 'GOES18', 'GOES19', 'HIMAWARI8', 'HIMAWARI9', 'MET8']:
         size = 500
         extent_margin = 5
         url += '&coverage=FD'
@@ -8668,4 +8860,4 @@ async def commandHelp(ctx):
     await ctx.send("For the full command list, consult the google document here:\n")
     await ctx.send(url)
 
-bot.run(AUTH_TOKEN)
+bot.run('AUTH_TOKEN')
