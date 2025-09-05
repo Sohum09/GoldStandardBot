@@ -5612,6 +5612,697 @@ async def ascat(ctx, AWS:float):
     await ctx.send(f"Warning: Please remember that this is meant for 25km resolution ASCAT and that you should only do it for visible barbs. This is statistically taken from Chou et al. 2013 and is not meant to be used completely at face value.")
     await ctx.send(f"The adjusted representative windspeed: {DWS} kt")
 
+@bot.command(name='ascatplot_ibtracs')
+async def ascatplot_ibtracs(ctx, btkID:str, yr, satellite_search:str, hour:int, date:str):
+    import datetime
+    from eumdac.token import AccessToken
+    from eumdac.datastore import DataStore
+    import shutil
+    import zipfile
+    import os
+    import matplotlib.pyplot as plt
+    import cartopy.crs as ccrs
+    import cartopy.feature as cfeature
+    import numpy as np
+    import matplotlib.colors as mcolors
+    import glob
+    import matplotlib.style as mplstyle
+    mplstyle.use("dark_background") 
+    import csv
+
+    satellite_search = satellite_search.lower()
+    day, month, year = int(date.split('/')[0]), int(date.split('/')[1]), int(date.split('/')[2])
+
+    btkID = btkID.upper()
+
+    if btkID == 'BENTO':
+        btkID = 'BENTOJANA'
+    duplicates = ['ALICE 1953', 'ALICE 1954', 'ANA 2021', 'BABE 1977', 'BETTY 1966', 'BETTY 1972', 'BETTY 1975',
+                  'DOREEN 1965', 'EDITH 1967', 'ELLEN 1973', 'FABIAN 1985', 'IDA 1972', 'IRMA 1978', 'IVY 1994',
+                  'JUDY 1989', 'LINDA 1997', 'MAX 1981', 'NINA 1992', 'NORMAN 2000', 'ODETTE 2021', 'PAUL 2000',
+                  'ROSE 1965', 'RUTH 1980', 'SALLY 1971', 'SARAH 1983', 'SHARON 1994', 'TIM 1994', 'WANDA 1974',
+                  'TOMAS 2010', 'VICKY 2020', 'JOYCE 2018', 'GORDON 1979', 'BENI 2003', 'MARK 1992', 'NADINE 1978',
+                  'WINNIE 1978', 'HARVEY 2005', 'FREDA 1981', 'POLLY 1971', 'LOUISE 1970', 'LUCY 1962', 'CARMEN 1974']
+    
+    check = f"{btkID} {yr}"
+    
+    if check in duplicates:
+        await ctx.send(f"Error: {check} is the name of multiple storms in this database. Consider using their ATCF IDs instead.")
+        return
+    if(btkID == 'NOT_NAMED'):
+        await ctx.send("Due to the IBTRACS database being ambiguous with this name, it cannot be used.")
+        return
+    if(btkID == 'UNNAMED'):
+        await ctx.send("Due to the IBTRACS database being ambiguous with this name, it cannot be used.")
+        return
+    
+    def _00x_to_xx00(des):
+        convert_map = {"L": "AL", "E": "EP", "C": "CP", "W":"WP", "A":"IO", "B":"IO", "S":"SH", "P":"SH"}
+        return convert_map[des[-1]] + des[:-1]
+
+    import re
+    if re.match(r"^\d{2}[A-Z]$", btkID):    
+        btkID = _00x_to_xx00(btkID)
+
+    #Load in the loops for finding the latitude and longitude...
+
+    IBTRACS_ID = f"{btkID}{yr}"
+    cdx, cdy, DateTime = 0, 0, ""
+    storm_name = ""
+    s_ID = ""
+    idl = False
+    basin = ''
+    hx = int(hour)
+    await ctx.send("Please wait. Due to my terrible potato laptop, the dataset may take a while to go through.")
+
+    #Template to read the IBTRACS Data...
+    with open('ibtracs.ALL.list.v04r01.csv', mode='r') as file:
+        csvFile = csv.reader(file)
+        for line_num, lines in enumerate(csvFile, start=1):
+            if line_num > 3:
+                #Process or print the lines from the 4th line onwards
+                #If IBTRACS ID matches the ID on the script...
+                if lines[18] == IBTRACS_ID or (btkID == lines[5] and yr == lines[6][:4]):
+                    DateTime = lines[6]
+                    basin = lines[3]
+                    if int(DateTime[:4]) == year and int(DateTime[5:7]) == month and int(DateTime[8:10]) == day and int(DateTime[-8:-6]) == hx:
+                        s_ID = lines[18]
+                        cdy, cdx = float(lines[19]), float(lines[20])
+                        if(float(cdx) <= -173.5 or float(cdx) >= 173.5):
+                            idl = True
+                        storm_name = lines[5]
+                        break
+    
+    if cdx == 0:
+        await ctx.send("Error 404: Storm not found. Please check if your entry is correct.")
+        return
+
+    await ctx.send("System located in database, fetching appropriate satellite...")
+
+    center_lat = cdy # Center latitude
+    center_lon = cdx # Center longitude
+
+    await ctx.send("Searching for files...")
+
+    consumer_key = 'CONSUMER_KEY'
+    consumer_secret = 'CONSUMER_SECRET'
+
+    credentials = (consumer_key, consumer_secret)
+    token = AccessToken(credentials)
+    datastore = DataStore(token)
+
+    selected_collection = datastore.get_collection('EO:EUM:DAT:METOP:OAS025')
+
+    # Set sensing start and end time
+    end = datetime.datetime(year, month, day, hour, 0)
+    start = end - datetime.timedelta(hours=6)
+
+    selected_products = selected_collection.search(dtstart = start, dtend = end)
+
+    print(f'Found Datasets: {selected_products.total_results} datasets for the given time range')
+    if selected_products.total_results > 0:
+        await ctx.send("Datasets found, initiating download...")
+    else:
+        await ctx.send("None found, aborting process.")
+    for product in selected_products:
+        product_name = str(product)  # Convert the product object to a string to get the filename
+        # Filter by satellite type
+        if satellite_search in product_name:
+            print(f"Downloading: {product_name}")
+            try:
+                with product.open() as fsrc, \
+                    open(fsrc.name, mode='wb') as fdst:
+                    shutil.copyfileobj(fsrc, fdst)
+                print(f"Downloaded {fdst.name}")
+            except Exception as e:
+                print(f"Failed to download {product}: {e}") # Print the product object for better context on error
+        else:
+            print(f"Skipping {product_name} as it is not a {satellite_search.upper()} product.")
+
+    print("Download process complete.")
+
+    #Extract the downloaded zip files
+    # Get a list of all files in the current directory
+    all_files = os.listdir('.')
+
+    # Filter for zip files
+    zip_files = [f for f in all_files if f.endswith('.zip')]
+
+    print(f"Found {len(zip_files)} zip files to extract.")
+
+    for zip_file in zip_files:
+        print(f"Extracting: {zip_file}")
+        try:
+            with zipfile.ZipFile(zip_file, 'r') as zip_ref:
+                zip_ref.extractall('.') # Extract to the current directory
+            print(f"Successfully extracted: {zip_file}")
+        except zipfile.BadZipFile:
+            print(f"Error: {zip_file} is not a valid zip file.")
+        except Exception as e:
+            print(f"Error extracting {zip_file}: {e}")
+
+    print("Extraction process complete.")
+
+    await ctx.send("Plotting data. Please wait, this may take some time.")
+
+    # Step 5: Open NetCDF files using xarray
+    import xarray as xr
+    import os
+
+    # Get a list of all files in the current directory
+    all_files = os.listdir('.')
+
+    # Filter for NetCDF files that start with 'ascat_' and end with '.nc'
+    netcdf_files = [f for f in all_files if f.startswith('ascat_') and f.endswith('.nc')]
+
+    print(f"Found {len(netcdf_files)} NetCDF files to open.")
+
+    # Dictionary to store opened datasets
+    datasets = {}
+
+    for nc_file in netcdf_files:
+        print(f"Opening: {nc_file}")
+        try:
+            ds = xr.open_dataset(nc_file)
+            datasets[nc_file] = ds
+            print(f"Successfully opened: {nc_file}")
+        except Exception as e:
+            print(f"Error opening {nc_file}: {e}")
+
+    print("All specified NetCDF files have been processed.")
+
+    center_lat, center_lon = cdy, cdx
+
+    min_lat = center_lat-5
+    max_lat = center_lat+5
+    min_lon = center_lon-5
+    max_lon = center_lon+5
+
+    # Calculate the center latitude and longitude for the plot
+    plot_center_lat = (min_lat + max_lat) / 2
+    plot_center_lon = (min_lon + max_lon) / 2
+
+    print(f"Plot Center Latitude: {plot_center_lat}")
+    print(f"Plot Center Longitude: {plot_center_lon}")
+
+    import numpy as np
+
+    # Initialize variables to store the minimum distance and nearest pixel information
+    min_distance = float('inf')
+    nearest_pixel_info = None
+
+    for filename, ds in datasets.items():
+        try:
+            lat_values = ds['lat'].values
+            lon_values = ds['lon'].values
+            for row_index in range(lat_values.shape[0]):
+                for col_index in range(lat_values.shape[1]):
+                    pixel_lat = lat_values[row_index, col_index]
+                    pixel_lon = lon_values[row_index, col_index]
+                    distance = np.sqrt((pixel_lat - plot_center_lat)**2 + (pixel_lon - plot_center_lon)**2)
+                    if distance < min_distance:
+                        min_distance = distance
+                        nearest_pixel_info = (filename, (row_index, col_index))
+
+        except KeyError as e:
+            print(f"Error: Variable {e} not found in dataset {filename}")
+        except Exception as e:
+            print(f"Error processing dataset {filename}: {e}")
+
+    if nearest_pixel_info:
+        print(f"The nearest pixel to the plot center is in file: {nearest_pixel_info[0]} at index: {nearest_pixel_info[1]}")
+        print(f"Minimum distance: {min_distance}")
+        if min_distance > 5:
+            await ctx.send("The nearest pixel to the plot center is more than 5 degrees away from the plot center. Please try again later.")
+            
+            # Close all opened datasets
+            for filename, ds in datasets.items():
+                try:
+                    ds.close()
+                    print(f"Closed dataset: {filename}")
+                except Exception as e:
+                    print(f"Error closing dataset {filename}: {e}")
+
+            print("All datasets have been closed.")
+
+            # Find all files starting with 'ascat_'
+            files_to_delete = glob.glob('ascat_*')
+            add_to_delete = glob.glob('*.xml')
+            files_to_delete.extend(add_to_delete)
+
+            print(f"Found {len(files_to_delete)} files to delete.")
+
+            # Delete each file
+            for file_path in files_to_delete:
+                try:
+                    os.remove(file_path)
+                    print(f"Deleted: {file_path}")
+                except OSError as e:
+                    print(f"Error deleting {file_path}: {e}")
+            print("Deletion process complete.")
+            
+            return
+    else:
+        print("No nearest pixel found. There might be an issue with the datasets or variables.")
+    # Access the dataset using the filename from nearest_pixel_info
+    nearest_dataset_name = nearest_pixel_info[0]
+    nearest_ds = datasets[nearest_dataset_name]
+
+    # Extract the 'time' variable from the selected dataset
+    nearest_pixel_time = nearest_ds['time'].values
+    #print(f"Time at the nearest pixel: {nearest_pixel_time}")
+    # Extract the index of the nearest pixel
+    row_index, col_index = nearest_pixel_info[1]
+    # Extract the single time value at the nearest pixel's index
+    nearest_pixel_time_value = nearest_ds['time'].values[row_index, col_index]
+
+    print(f"Single time value at the nearest pixel: {nearest_pixel_time_value}")
+
+    import pandas as pd
+
+    # Convert the nearest_pixel_time_value to a pandas Timestamp object
+    nearest_pixel_timestamp = pd.Timestamp(nearest_pixel_time_value)
+
+    # Format the pandas Timestamp object into a string
+    formatted_time_string = nearest_pixel_timestamp.strftime('%Y-%m-%d %H:%M')
+
+    # Print the formatted time string to verify the result
+    print(f"Formatted time string: {formatted_time_string}")
+
+    # Create a figure and axes with a PlateCarree projection
+    fig = plt.figure(figsize=(10, 8))
+    ax = plt.axes(projection=ccrs.PlateCarree())
+
+    # Add coastlines and countries
+    ax.add_feature(cfeature.COASTLINE, linewidth=1, color="c")
+    ax.add_feature(cfeature.BORDERS, color="w", linewidth=0.75)
+
+    # Add gridlines for reference
+    gl = ax.gridlines(draw_labels=True, linewidth=1, color='gray', alpha=0.5, linestyle='--')
+    gl.top_labels = False  # Turn off top labels
+    gl.right_labels = False # Turn off right labels
+
+    ax.set_extent([min_lon, max_lon, min_lat, max_lat], crs=ccrs.PlateCarree())
+
+    # Define color levels for wind speed
+    wind_speed_levels = np.arange(0, 80, 5)  # 0 to 75 in increments of 5
+
+    # Define custom colormap
+    colors = ['blue', 'green', 'yellow', 'red', 'purple', 'brown', 'pink']
+    cmap_name = 'ascat_cmap'
+    cm = mcolors.LinearSegmentedColormap.from_list(cmap_name, colors, N=len(wind_speed_levels)-1)
+
+    norm = mcolors.BoundaryNorm(wind_speed_levels, cm.N)
+
+    # Iterate through the opened datasets
+    for filename, ds in datasets.items():
+        try:
+            wind_speed = ds['wind_speed'] * 1.94384 #Convert to knots
+            wind_dir = ds['wind_dir']
+            lon = ds['lon']
+            lat = ds['lat']
+
+            # Convert wind direction from degrees to radians
+            wind_dir_rad = np.deg2rad(wind_dir)
+
+            # Calculate U and V components
+            u_full = wind_speed * np.sin(wind_dir_rad)
+            v_full = wind_speed * np.cos(wind_dir_rad)
+
+            # Check if the dataset's spatial extent is within the desired bounds
+            # Colorcode the barbs based on wind speed
+            cs = ax.barbs(lon[:], lat[:], u_full.values, v_full.values, wind_speed.values,
+                        cmap=cm, norm=norm, length=5) # Use custom colormap
+
+        except KeyError as e:
+            print(f"Error: Variable {e} not found in dataset {filename}")
+        except Exception as e:
+            print(f"Error processing dataset {filename}: {e}")
+
+    # Create the plot title with the wind information and the time of the nearest pixel
+    #{s_ID} {storm_name}
+    title_string = f'ASCAT 25km Winds for {s_ID}{storm_name} | {satellite_search.upper()} | {formatted_time_string} UTC'
+
+    ax.set_title(title_string)
+    ax.set_xlabel('Longitude')
+    ax.set_ylabel('Latitude')
+
+    # Add a colorbar
+    cbar = fig.colorbar(cs, ticks=wind_speed_levels)
+    cbar.set_label('Wind Speed (knots)')
+
+    plt.tight_layout()
+    import random
+    image_path = f'ascat_nc{random.randint(1, 100)}.png'
+    plt.savefig(image_path, format='png', bbox_inches='tight')
+    plt.close()
+
+    async def send_image(image_path):
+        with open(image_path, 'rb') as image_file:
+            image = discord.File(image_file)
+            await ctx.send(file=image)
+
+    # Send the generated image
+    await send_image(image_path)
+
+    # Remove the temporary image file
+    os.remove(image_path)
+
+    # Close all opened datasets
+    for filename, ds in datasets.items():
+        try:
+            ds.close()
+            print(f"Closed dataset: {filename}")
+        except Exception as e:
+            print(f"Error closing dataset {filename}: {e}")
+
+    print("All datasets have been closed.")
+
+    # Find all files starting with 'ascat_'
+    files_to_delete = glob.glob('ascat_*')
+    add_to_delete = glob.glob('*.xml')
+    files_to_delete.extend(add_to_delete)
+
+    print(f"Found {len(files_to_delete)} files to delete.")
+
+    # Delete each file
+    for file_path in files_to_delete:
+        try:
+            os.remove(file_path)
+            print(f"Deleted: {file_path}")
+        except OSError as e:
+            print(f"Error deleting {file_path}: {e}")
+    print("Deletion process complete.")
+
+@bot.command(name='ascatplot')
+async def ascatplot(ctx, satellite_search:str, lat:float, lon:float, hour:int, date:str):
+    import datetime
+    from eumdac.token import AccessToken
+    from eumdac.datastore import DataStore
+    import shutil
+    import zipfile
+    import os
+    import matplotlib.pyplot as plt
+    import cartopy.crs as ccrs
+    import cartopy.feature as cfeature
+    import numpy as np
+    import matplotlib.colors as mcolors
+    import glob
+    import matplotlib.style as mplstyle
+    mplstyle.use("dark_background") 
+    satellite_search = satellite_search.lower()
+    await ctx.send("Searching for files...")
+
+    consumer_key = 'CONSUMER_KEY'
+    consumer_secret = 'CONSUMER_SECRET'
+
+    credentials = (consumer_key, consumer_secret)
+    token = AccessToken(credentials)
+    datastore = DataStore(token)
+
+    selected_collection = datastore.get_collection('EO:EUM:DAT:METOP:OAS025')
+    day, month, year = int(date.split('/')[0]), int(date.split('/')[1]), int(date.split('/')[2])
+
+    # Set sensing start and end time
+    end = datetime.datetime(year, month, day, hour, 0)
+    start = end - datetime.timedelta(hours=6)
+
+    selected_products = selected_collection.search(dtstart = start, dtend = end)
+
+    print(f'Found Datasets: {selected_products.total_results} datasets for the given time range')
+    if selected_products.total_results > 0:
+        await ctx.send("Datasets found, initiating download...")
+    else:
+        await ctx.send("None found, aborting process.")
+    for product in selected_products:
+        product_name = str(product)  # Convert the product object to a string to get the filename
+        # Filter by satellite type
+        if satellite_search in product_name:
+            print(f"Downloading: {product_name}")
+            try:
+                with product.open() as fsrc, \
+                    open(fsrc.name, mode='wb') as fdst:
+                    shutil.copyfileobj(fsrc, fdst)
+                print(f"Downloaded {fdst.name}")
+            except Exception as e:
+                print(f"Failed to download {product}: {e}") # Print the product object for better context on error
+        else:
+            print(f"Skipping {product_name} as it is not a {satellite_search.upper()} product.")
+
+    print("Download process complete.")
+
+    #Extract the downloaded zip files
+    # Get a list of all files in the current directory
+    all_files = os.listdir('.')
+
+    # Filter for zip files
+    zip_files = [f for f in all_files if f.endswith('.zip')]
+
+    print(f"Found {len(zip_files)} zip files to extract.")
+
+    for zip_file in zip_files:
+        print(f"Extracting: {zip_file}")
+        try:
+            with zipfile.ZipFile(zip_file, 'r') as zip_ref:
+                zip_ref.extractall('.') # Extract to the current directory
+            print(f"Successfully extracted: {zip_file}")
+        except zipfile.BadZipFile:
+            print(f"Error: {zip_file} is not a valid zip file.")
+        except Exception as e:
+            print(f"Error extracting {zip_file}: {e}")
+
+    print("Extraction process complete.")
+
+    await ctx.send("Plotting data. Please wait, this may take some time.")
+
+    # Step 5: Open NetCDF files using xarray
+    import xarray as xr
+    import os
+
+    # Get a list of all files in the current directory
+    all_files = os.listdir('.')
+
+    # Filter for NetCDF files that start with 'ascat_' and end with '.nc'
+    netcdf_files = [f for f in all_files if f.startswith('ascat_') and f.endswith('.nc')]
+
+    print(f"Found {len(netcdf_files)} NetCDF files to open.")
+
+    # Dictionary to store opened datasets
+    datasets = {}
+
+    for nc_file in netcdf_files:
+        print(f"Opening: {nc_file}")
+        try:
+            ds = xr.open_dataset(nc_file)
+            datasets[nc_file] = ds
+            print(f"Successfully opened: {nc_file}")
+        except Exception as e:
+            print(f"Error opening {nc_file}: {e}")
+
+    print("All specified NetCDF files have been processed.")
+
+    center_lat, center_lon = lat, lon
+
+    min_lat = center_lat-5
+    max_lat = center_lat+5
+    min_lon = center_lon-5
+    max_lon = center_lon+5
+
+    # Calculate the center latitude and longitude for the plot
+    plot_center_lat = (min_lat + max_lat) / 2
+    plot_center_lon = (min_lon + max_lon) / 2
+
+    print(f"Plot Center Latitude: {plot_center_lat}")
+    print(f"Plot Center Longitude: {plot_center_lon}")
+
+    import numpy as np
+
+    # Initialize variables to store the minimum distance and nearest pixel information
+    min_distance = float('inf')
+    nearest_pixel_info = None
+
+    for filename, ds in datasets.items():
+        try:
+            lat_values = ds['lat'].values
+            lon_values = ds['lon'].values
+            for row_index in range(lat_values.shape[0]):
+                for col_index in range(lat_values.shape[1]):
+                    pixel_lat = lat_values[row_index, col_index]
+                    pixel_lon = lon_values[row_index, col_index]
+                    distance = np.sqrt((pixel_lat - plot_center_lat)**2 + (pixel_lon - plot_center_lon)**2)
+                    if distance < min_distance:
+                        min_distance = distance
+                        nearest_pixel_info = (filename, (row_index, col_index))
+
+        except KeyError as e:
+            print(f"Error: Variable {e} not found in dataset {filename}")
+        except Exception as e:
+            print(f"Error processing dataset {filename}: {e}")
+
+    if nearest_pixel_info:
+        print(f"The nearest pixel to the plot center is in file: {nearest_pixel_info[0]} at index: {nearest_pixel_info[1]}")
+        print(f"Minimum distance: {min_distance}")
+        if min_distance > 5:
+            await ctx.send("The nearest pixel to the plot center is more than 5 degrees away from the plot center. Please try again later.")
+            
+            # Close all opened datasets
+            for filename, ds in datasets.items():
+                try:
+                    ds.close()
+                    print(f"Closed dataset: {filename}")
+                except Exception as e:
+                    print(f"Error closing dataset {filename}: {e}")
+
+            print("All datasets have been closed.")
+
+            # Find all files starting with 'ascat_'
+            files_to_delete = glob.glob('ascat_*')
+            add_to_delete = glob.glob('*.xml')
+            files_to_delete.extend(add_to_delete)
+
+            print(f"Found {len(files_to_delete)} files to delete.")
+
+            # Delete each file
+            for file_path in files_to_delete:
+                try:
+                    os.remove(file_path)
+                    print(f"Deleted: {file_path}")
+                except OSError as e:
+                    print(f"Error deleting {file_path}: {e}")
+            print("Deletion process complete.")
+            return
+    else:
+        print("No nearest pixel found. There might be an issue with the datasets or variables.")
+
+    # Access the dataset using the filename from nearest_pixel_info
+    nearest_dataset_name = nearest_pixel_info[0]
+    nearest_ds = datasets[nearest_dataset_name]
+
+    # Extract the 'time' variable from the selected dataset
+    nearest_pixel_time = nearest_ds['time'].values
+    #print(f"Time at the nearest pixel: {nearest_pixel_time}")
+    # Extract the index of the nearest pixel
+    row_index, col_index = nearest_pixel_info[1]
+    # Extract the single time value at the nearest pixel's index
+    nearest_pixel_time_value = nearest_ds['time'].values[row_index, col_index]
+
+    print(f"Single time value at the nearest pixel: {nearest_pixel_time_value}")
+
+    import pandas as pd
+
+    # Convert the nearest_pixel_time_value to a pandas Timestamp object
+    nearest_pixel_timestamp = pd.Timestamp(nearest_pixel_time_value)
+
+    # Format the pandas Timestamp object into a string
+    formatted_time_string = nearest_pixel_timestamp.strftime('%Y-%m-%d %H:%M')
+
+    # Print the formatted time string to verify the result
+    print(f"Formatted time string: {formatted_time_string}")
+
+    # Create a figure and axes with a PlateCarree projection
+    fig = plt.figure(figsize=(10, 8))
+    ax = plt.axes(projection=ccrs.PlateCarree())
+
+    # Add coastlines and countries
+    ax.add_feature(cfeature.COASTLINE, linewidth=1, color="c")
+    ax.add_feature(cfeature.BORDERS, color="w", linewidth=0.75)
+
+    # Add gridlines for reference
+    gl = ax.gridlines(draw_labels=True, linewidth=1, color='gray', alpha=0.5, linestyle='--')
+    gl.top_labels = False  # Turn off top labels
+    gl.right_labels = False # Turn off right labels
+
+    ax.set_extent([min_lon, max_lon, min_lat, max_lat], crs=ccrs.PlateCarree())
+
+    # Define color levels for wind speed
+    wind_speed_levels = np.arange(0, 80, 5)  # 0 to 75 in increments of 5
+
+    # Define custom colormap
+    colors = ['blue', 'green', 'yellow', 'red', 'purple', 'brown', 'pink']
+    cmap_name = 'ascat_cmap'
+    cm = mcolors.LinearSegmentedColormap.from_list(cmap_name, colors, N=len(wind_speed_levels)-1)
+
+    norm = mcolors.BoundaryNorm(wind_speed_levels, cm.N)
+
+    # Iterate through the opened datasets
+    for filename, ds in datasets.items():
+        try:
+            wind_speed = ds['wind_speed'] * 1.94384 #Convert to knots
+            wind_dir = ds['wind_dir']
+            lon = ds['lon']
+            lat = ds['lat']
+
+            # Convert wind direction from degrees to radians
+            wind_dir_rad = np.deg2rad(wind_dir)
+
+            # Calculate U and V components
+            u_full = wind_speed * np.sin(wind_dir_rad)
+            v_full = wind_speed * np.cos(wind_dir_rad)
+
+            # Check if the dataset's spatial extent is within the desired bounds
+            # Colorcode the barbs based on wind speed
+            cs = ax.barbs(lon[:], lat[:], u_full.values, v_full.values, wind_speed.values,
+                        cmap=cm, norm=norm, length=5) # Use custom colormap
+
+        except KeyError as e:
+            print(f"Error: Variable {e} not found in dataset {filename}")
+        except Exception as e:
+            print(f"Error processing dataset {filename}: {e}")
+
+    # Create the plot title with the wind information and the time of the nearest pixel
+    title_string = f'ASCAT 25km Winds ({center_lat}, {center_lon}) | {satellite_search.upper()} | {formatted_time_string} UTC'
+
+    ax.set_title(title_string)
+    ax.set_xlabel('Longitude')
+    ax.set_ylabel('Latitude')
+
+    # Add a colorbar
+    cbar = fig.colorbar(cs, ticks=wind_speed_levels)
+    cbar.set_label('Wind Speed (knots)')
+
+    plt.tight_layout()
+    import random
+    image_path = f'ascat_nc{random.randint(1, 100)}.png'
+    plt.savefig(image_path, format='png', bbox_inches='tight')
+    plt.close()
+
+    async def send_image(image_path):
+        with open(image_path, 'rb') as image_file:
+            image = discord.File(image_file)
+            await ctx.send(file=image)
+
+    # Send the generated image
+    await send_image(image_path)
+
+    # Remove the temporary image file
+    os.remove(image_path)
+
+    # Close all opened datasets
+    for filename, ds in datasets.items():
+        try:
+            ds.close()
+            print(f"Closed dataset: {filename}")
+        except Exception as e:
+            print(f"Error closing dataset {filename}: {e}")
+
+    print("All datasets have been closed.")
+
+    # Find all files starting with 'ascat_'
+    files_to_delete = glob.glob('ascat_*')
+    add_to_delete = glob.glob('*.xml')
+    files_to_delete.extend(add_to_delete)
+
+    print(f"Found {len(files_to_delete)} files to delete.")
+
+    # Delete each file
+    for file_path in files_to_delete:
+        try:
+            os.remove(file_path)
+            print(f"Deleted: {file_path}")
+        except OSError as e:
+            print(f"Error deleting {file_path}: {e}")
+    print("Deletion process complete.")
+
 @bot.command(name='hursat')
 async def hursat(ctx, btkID:str, yr:str):
     import csv
