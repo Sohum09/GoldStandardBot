@@ -25,7 +25,6 @@ async def on_command_error(ctx, error):
     else:
         await ctx.send(f"An error occurred: {error}")
 
-
 @bot.command(name='hi', help='Send a message that says hi!')
 async def hi(ctx):
     print("Command received!")
@@ -149,7 +148,6 @@ async def atcf(ctx, info=""):
         res = displayStormInfo(storm_data)
         await ctx.send(res)
 
-
 @bot.command(name='atcfv2', help='Display ATCF storm data from API')
 async def atcfv2(ctx, info=""):
     import urllib3
@@ -232,7 +230,6 @@ async def atcfv2(ctx, info=""):
     # Step 4: Display the storm information
     storm_info = display_storm_info(storm_data)
     await ctx.send(storm_info)
-
 
 @bot.command(name='btk', help='Get data on the most recent storms')
 async def btk(ctx, btkID:str, yr:str, plotter=''):
@@ -586,8 +583,6 @@ async def ripa(ctx, btkID:str):
     # Delete the temporary text file
     os.remove(output_file_path)
 
-
-
 @bot.command(name='amsu')
 async def amsu(ctx, header:str):
     import urllib3
@@ -626,8 +621,6 @@ async def amsu(ctx, header:str):
         res += line + "\n"
     res += '```'
     await ctx.send(res)
-
-
 
 @bot.command(name='ckz', help='Calculate the ckz WP relationship')
 async def ckz(ctx, vmax:float, storm_movement:float, latitude:float, roci:float, envp:float):
@@ -1379,7 +1372,6 @@ async def uwind_anomaly(ctx, hour:str, date:str, pressure_level=850):
     # Remove the temporary image file
     os.remove(image_path)
     
-
 @bot.command(name='gfs_streamlines')
 async def gfs_streamlines(ctx, btkID:str, mb:int=200):
     import urllib3
@@ -1497,8 +1489,8 @@ async def gfs_streamlines(ctx, btkID:str, mb:int=200):
     ax = fig.add_subplot(1, 1, 1, projection=ccrs.PlateCarree(central_longitude=180))
     ax.set_extent([longitude.min(), longitude.max(), latitude.min(), latitude.max()], crs=ccrs.PlateCarree(central_longitude=180))
     from matplotlib import colors      
-    ax.add_feature(cfeature.COASTLINE, linewidth=1, color="c")
-    ax.add_feature(cfeature.BORDERS, color="w", linewidth=0.75)
+    ax.add_feature(cfeature.COASTLINE, linewidth=1, edgecolor="c")
+    ax.add_feature(cfeature.BORDERS, edgecolor="w", linewidth=0.75)
     ax.add_feature(cfeature.LAND, facecolor=colors.to_rgba("c", 0.25))
 
     # Plot streamlines
@@ -1662,8 +1654,8 @@ async def tchp(ctx, btkID:str):
 
     # Add land and gridlines
     from matplotlib import colors      
-    ax.add_feature(cfeature.COASTLINE, linewidth=1, color="c")
-    ax.add_feature(cfeature.BORDERS, color="w", linewidth=0.75)
+    ax.add_feature(cfeature.COASTLINE, linewidth=1, edgecolor="c")
+    ax.add_feature(cfeature.BORDERS, edgecolor="w", linewidth=0.75)
     ax.add_feature(cfeature.LAND, facecolor=colors.to_rgba("c", 0.25))
     gl = ax.gridlines(draw_labels=True, linewidth=0.5, linestyle='--', color='gray')
     gl.top_labels = False   # suppress top labels
@@ -1750,8 +1742,8 @@ async def tchp_custom(ctx, centerY:float, centerX:float):
 
     # Add land and gridlines
     from matplotlib import colors      
-    ax.add_feature(cfeature.COASTLINE, linewidth=1, color="c")
-    ax.add_feature(cfeature.BORDERS, color="w", linewidth=0.75)
+    ax.add_feature(cfeature.COASTLINE, linewidth=1, edgecolor="c")
+    ax.add_feature(cfeature.BORDERS, edgecolor="w", linewidth=0.75)
     ax.add_feature(cfeature.LAND, facecolor=colors.to_rgba("c", 0.25))
     gl = ax.gridlines(draw_labels=True, linewidth=0.5, linestyle='--', color='gray')
     gl.top_labels = False   # suppress top labels
@@ -1862,8 +1854,8 @@ async def tcsst(ctx, btkID: str):
         import cartopy.feature as cfeature
         from matplotlib import colors
         
-        ax.add_feature(cfeature.COASTLINE, linewidth=1, color="c")
-        ax.add_feature(cfeature.BORDERS, color="w", linewidth=0.75)
+        ax.add_feature(cfeature.COASTLINE, linewidth=1, edgecolor="c")
+        ax.add_feature(cfeature.BORDERS, edgecolor="w", linewidth=0.75)
         ax.add_feature(cfeature.LAND, facecolor=colors.to_rgba("c", 0.25))
         gls = ax.gridlines(draw_labels=True, linewidth=0.5, linestyle='--', color='gray')
         gls.top_labels = False   # suppress top labels
@@ -1982,7 +1974,6 @@ async def tcsst(ctx, btkID: str):
     # Clean up: remove the downloaded netCDF file
     os.remove('sst_data.nc')
 
-
 @bot.command(name='tcsst_custom')
 async def tcsst_custom(ctx, centerY:float, centerX:float, offset=0):
     import discord
@@ -2042,8 +2033,8 @@ async def tcsst_custom(ctx, centerY:float, centerX:float, offset=0):
         import cartopy.feature as cfeature
         from matplotlib import colors
         
-        ax.add_feature(cfeature.COASTLINE, linewidth=1, color="c")
-        ax.add_feature(cfeature.BORDERS, color="w", linewidth=0.75)
+        ax.add_feature(cfeature.COASTLINE, linewidth=1, edgecolor="c")
+        ax.add_feature(cfeature.BORDERS, edgecolor="w", linewidth=0.75)
         ax.add_feature(cfeature.LAND, facecolor=colors.to_rgba("c", 0.25))
         gls = ax.gridlines(draw_labels=True, linewidth=0.5, linestyle='--', color='gray')
         gls.top_labels = False   # suppress top labels
@@ -2178,8 +2169,8 @@ async def tcsst_historical(ctx, centerY: float, centerX: float, date, offset=0):
         import cartopy.feature as cfeature
         from matplotlib import colors
         
-        ax.add_feature(cfeature.COASTLINE, linewidth=1, color="c")
-        ax.add_feature(cfeature.BORDERS, color="w", linewidth=0.75)
+        ax.add_feature(cfeature.COASTLINE, linewidth=1, edgecolor="c")
+        ax.add_feature(cfeature.BORDERS, edgecolor="w", linewidth=0.75)
         ax.add_feature(cfeature.LAND, facecolor=colors.to_rgba("c", 0.25))
         gls = ax.gridlines(draw_labels=True, linewidth=0.5, linestyle='--', color='gray')
         gls.top_labels = gls.right_labels = False
@@ -2255,7 +2246,6 @@ async def tcsst_historical(ctx, centerY: float, centerX: float, date, offset=0):
     finally:
         if os.path.exists('sst_data.nc'):
             os.remove('sst_data.nc')
-
 
 @bot.command(name='ersst')
 async def ersst(ctx, month:int, year:int):
@@ -3108,7 +3098,6 @@ async def findobs(ctx, lat: float, long: float):
     # Delete the temporary CSV file
     os.remove("platform_data_find.csv")
 
-
 @bot.command(name='obsplot')
 async def obsplot(ctx, stationID:str):
     import pandas as pd
@@ -3482,8 +3471,8 @@ async def seasongen_atcf(ctx, url:str, basin=''):
 
     from matplotlib import colors
     
-    ax.add_feature(cfeature.COASTLINE, linewidth=1, color="c")
-    ax.add_feature(cfeature.BORDERS, color="w", linewidth=0.75)
+    ax.add_feature(cfeature.COASTLINE, linewidth=1, edgecolor="c")
+    ax.add_feature(cfeature.BORDERS, edgecolor="w", linewidth=0.75)
     ax.add_feature(cfeature.LAND, facecolor=colors.to_rgba("c", 0.25))
     if idl == False:
         ax.add_feature(cfeature.OCEAN, facecolor='#191919')
@@ -3751,8 +3740,8 @@ async def seasongen_hurdat(ctx, url:str, basin=''):
 
     from matplotlib import colors
     
-    ax.add_feature(cfeature.COASTLINE, linewidth=1, color="c")
-    ax.add_feature(cfeature.BORDERS, color="w", linewidth=0.75)
+    ax.add_feature(cfeature.COASTLINE, linewidth=1, edgecolor="c")
+    ax.add_feature(cfeature.BORDERS, edgecolor="w", linewidth=0.75)
     ax.add_feature(cfeature.LAND, facecolor=colors.to_rgba("c", 0.25))
     if idl == False:
         ax.add_feature(cfeature.OCEAN, facecolor='#191919')
@@ -4106,8 +4095,8 @@ async def smap(ctx, btkID, nodeType:str):
     import cartopy.feature as cfeature
     from matplotlib import colors
     
-    ax.add_feature(cfeature.COASTLINE, linewidth=1, color="c")
-    ax.add_feature(cfeature.BORDERS, color="w", linewidth=0.75)
+    ax.add_feature(cfeature.COASTLINE, linewidth=1, edgecolor="c")
+    ax.add_feature(cfeature.BORDERS, edgecolor="w", linewidth=0.75)
     ax.add_feature(cfeature.LAND, facecolor=colors.to_rgba("c", 0.25))
     
 
@@ -4256,8 +4245,8 @@ async def smap_custom(ctx, cY:float, cX:float, nodeType:str):
         import cartopy.feature as cfeature
         from matplotlib import colors
         
-        ax.add_feature(cfeature.COASTLINE, linewidth=1, color="c")
-        ax.add_feature(cfeature.BORDERS, color="w", linewidth=0.75)
+        ax.add_feature(cfeature.COASTLINE, linewidth=1, edgecolor="c")
+        ax.add_feature(cfeature.BORDERS, edgecolor="w", linewidth=0.75)
         ax.add_feature(cfeature.LAND, facecolor=colors.to_rgba("c", 0.25))
 
         gls = ax.gridlines(draw_labels=True, linewidth=0.5, linestyle='--', color='gray')
@@ -5067,7 +5056,6 @@ async def oldibtracs(ctx, btkID:str, yr:str):
 
     os.remove(image_path)  
 
-
 @bot.command(name='trackgen_hurdat')
 async def trackgen_hurdat(ctx, url:str):
     import matplotlib.pyplot as plt
@@ -5141,8 +5129,8 @@ async def trackgen_hurdat(ctx, url:str):
 
     from matplotlib import colors
     
-    ax.add_feature(cfeature.COASTLINE, linewidth=1, color="c")
-    ax.add_feature(cfeature.BORDERS, color="w", linewidth=0.75)
+    ax.add_feature(cfeature.COASTLINE, linewidth=1, edgecolor="c")
+    ax.add_feature(cfeature.BORDERS, edgecolor="w", linewidth=0.75)
     ax.add_feature(cfeature.LAND, facecolor=colors.to_rgba("c", 0.25))
     if idl == False:
         ax.add_feature(cfeature.OCEAN, facecolor='#191919')
@@ -5382,11 +5370,11 @@ async def trackgen_atcf(ctx, url:str):
 
     from matplotlib import colors
     
-    ax.add_feature(cfeature.COASTLINE, linewidth=1, color="c")
-    ax.add_feature(cfeature.BORDERS, color="w", linewidth=0.75)
+    ax.add_feature(cfeature.COASTLINE, linewidth=1, edgecolor="c")
+    ax.add_feature(cfeature.BORDERS, edgecolor="w", linewidth=0.75)
     ax.add_feature(cfeature.LAND, facecolor=colors.to_rgba("c", 0.25))
     if idl == False:
-        ax.add_feature(cfeature.OCEAN, facecolor='#191919') 
+        ax.add_feature(cfeature.OCEAN, facecolor="#191919") 
 
     if idl != True:
         ax.gridlines(draw_labels=True, linewidth=0.5, linestyle='--', color='gray')
@@ -5612,8 +5600,392 @@ async def ascat(ctx, AWS:float):
     await ctx.send(f"Warning: Please remember that this is meant for 25km resolution ASCAT and that you should only do it for visible barbs. This is statistically taken from Chou et al. 2013 and is not meant to be used completely at face value.")
     await ctx.send(f"The adjusted representative windspeed: {DWS} kt")
 
-@bot.command(name='ascatplot_ibtracs')
-async def ascatplot_ibtracs(ctx, btkID:str, yr, satellite_search:str, hour:int, date:str):
+@bot.command(name='ascatplot_bt')
+async def ascatplot_bt(ctx, satellite_search:str, btkID:str):
+    import urllib3
+    from bs4 import BeautifulSoup
+    import datetime
+
+    btkID = btkID.lower()
+    def _00x_to_xx00(des):
+        convert_map = {"l": "al", "e": "ep", "c": "cp", "w":"wp", "a":"io", "b":"io", "s":"sh", "p":"sh"}
+        return convert_map[des[-1]] + des[:-1]
+
+    import re
+    if re.match(r"^\d{2}[a-z]$", btkID):    
+        btkID = _00x_to_xx00(btkID)
+
+    await ctx.send("Please wait. Due to my terrible potato laptop, the image may take a while to generate.")
+    urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+    http = urllib3.PoolManager(cert_reqs='CERT_NONE', assert_hostname=False)
+    #http = urllib3.PoolManager(cert_reqs='CERT_NONE')
+
+    def fetch_url(urlLink):
+        response = http.request('GET', urlLink)
+        return response.data.decode('utf-8')
+
+    def parse_data(html_content):
+        soup = BeautifulSoup(html_content, 'html.parser')
+        return soup.get_text()
+
+    basinDate = datetime.datetime.now()
+    basinmonth = basinDate.month
+    basinYear = basinDate.year
+    if btkID[:2] in ['sh', 'wp', 'io']:
+        if btkID[:2] == 'sh':
+            if basinmonth >= 7:
+                btkUrl = f'https://www.emc.ncep.noaa.gov/gc_wmb/vxt/DECKS/b{btkID}{basinYear+1}.dat'
+            else:
+                btkUrl = f'https://www.emc.ncep.noaa.gov/gc_wmb/vxt/DECKS/b{btkID}{basinYear}.dat'
+        else:
+            btkUrl = f'https://www.emc.ncep.noaa.gov/gc_wmb/vxt/DECKS/b{btkID}{basinYear}.dat'
+    else:
+        btkUrl = f'https://www.emc.ncep.noaa.gov/gc_wmb/vxt/DECKS/b{btkID}{basinYear}.dat'
+
+    btk_data = fetch_url(btkUrl)
+    parsed_data = parse_data(btk_data)
+    lines = parsed_data.split('\n')
+    cdx, cdy, DateTime, timeCheck = [], [], [], []
+    stormName = ""
+
+    for line in lines:
+        if line.strip():
+            parameters = line.split(',')
+            if parameters[6][-1] == 'S':
+                cdy.append((float(parameters[6][:-1].strip()) / 10) * -1)
+            else:
+                cdy.append(float(parameters[6][:-1].strip()) / 10)
+            if parameters[7][-1] == 'W':
+                cdx.append((float(parameters[7][:-1].strip()) / 10) * -1)
+            else:
+                cdx.append(float(parameters[7][:-1].strip()) / 10)
+            timeCheck.append((parameters[2][-2:].strip()))
+            date = parameters[2].strip()
+            date = f'{date[:4]}-{date[4:6]}-{date[6:8]} {timeCheck[-1]}:00:00'
+            DateTime.append(date)
+            stormName = parameters[27].strip()
+
+    await ctx.send("Storm located, fetching data from EUMETSAT...")
+    centerX, centerY = cdx[-1], cdy[-1]
+    center_lat = cdy[-1] # Center latitude
+    center_lon = cdx[-1] # Center longitude
+    copyX = centerX + 360 if centerX < 0 else centerX
+    DateTime = list(dict.fromkeys(DateTime))
+    year, month, day, hour, minutes, seconds = map(int, DateTime[-1].replace('-', ' ').replace(':', ' ').split()) #Grab the latest values...
+
+    from eumdac.token import AccessToken
+    from eumdac.datastore import DataStore
+    import shutil
+    import zipfile
+    import os
+    import matplotlib.pyplot as plt
+    import cartopy.crs as ccrs
+    import cartopy.feature as cfeature
+    import numpy as np
+    import matplotlib.colors as mcolors
+    import glob
+    import matplotlib.style as mplstyle
+
+    mplstyle.use("dark_background") 
+
+    satellite_search = satellite_search.lower()
+    await ctx.send("Searching for files...")
+
+    consumer_key = 'CONSUMER_KEY'
+    consumer_secret = 'CONSUMER_SECRET'
+
+    credentials = (consumer_key, consumer_secret)
+    token = AccessToken(credentials)
+    datastore = DataStore(token)
+
+    selected_collection = datastore.get_collection('EO:EUM:DAT:METOP:OAS025')
+
+    # Set sensing start and end time
+    end = datetime.datetime(year, month, day, hour, 0)
+    start = end - datetime.timedelta(hours=6)
+
+    selected_products = selected_collection.search(dtstart = start, dtend = end)
+
+    print(f'Found Datasets: {selected_products.total_results} datasets for the given time range')
+    if selected_products.total_results > 0:
+        await ctx.send("Datasets found, initiating download...")
+    else:
+        await ctx.send("None found, aborting process.")
+    for product in selected_products:
+        product_name = str(product)  # Convert the product object to a string to get the filename
+        # Filter by satellite type
+        if satellite_search in product_name:
+            print(f"Downloading: {product_name}")
+            try:
+                with product.open() as fsrc, \
+                    open(fsrc.name, mode='wb') as fdst:
+                    shutil.copyfileobj(fsrc, fdst)
+                print(f"Downloaded {fdst.name}")
+            except Exception as e:
+                print(f"Failed to download {product}: {e}") # Print the product object for better context on error
+        else:
+            print(f"Skipping {product_name} as it is not a {satellite_search.upper()} product.")
+
+    print("Download process complete.")
+
+    #Extract the downloaded zip files
+    # Get a list of all files in the current directory
+    all_files = os.listdir('.')
+
+    # Filter for zip files
+    zip_files = [f for f in all_files if f.endswith('.zip')]
+
+    print(f"Found {len(zip_files)} zip files to extract.")
+
+    for zip_file in zip_files:
+        print(f"Extracting: {zip_file}")
+        try:
+            with zipfile.ZipFile(zip_file, 'r') as zip_ref:
+                zip_ref.extractall('.') # Extract to the current directory
+            print(f"Successfully extracted: {zip_file}")
+        except zipfile.BadZipFile:
+            print(f"Error: {zip_file} is not a valid zip file.")
+        except Exception as e:
+            print(f"Error extracting {zip_file}: {e}")
+
+    print("Extraction process complete.")
+
+    await ctx.send("Plotting data. Please wait, this may take some time.")
+
+    # Step 5: Open NetCDF files using xarray
+    import xarray as xr
+    import os
+
+    # Get a list of all files in the current directory
+    all_files = os.listdir('.')
+
+    # Filter for NetCDF files that start with 'ascat_' and end with '.nc'
+    netcdf_files = [f for f in all_files if f.startswith('ascat_') and f.endswith('.nc')]
+
+    print(f"Found {len(netcdf_files)} NetCDF files to open.")
+
+    # Dictionary to store opened datasets
+    datasets = {}
+
+    for nc_file in netcdf_files:
+        print(f"Opening: {nc_file}")
+        try:
+            ds = xr.open_dataset(nc_file)
+            datasets[nc_file] = ds
+            print(f"Successfully opened: {nc_file}")
+        except Exception as e:
+            print(f"Error opening {nc_file}: {e}")
+
+    print("All specified NetCDF files have been processed.")
+
+    min_lat = center_lat-5
+    max_lat = center_lat+5
+    min_lon = center_lon-5
+    max_lon = center_lon+5
+
+    # Calculate the center latitude and longitude for the plot
+    plot_center_lat = (min_lat + max_lat) / 2
+    plot_center_lon = (min_lon + max_lon) / 2
+    plot_center_lon = plot_center_lon + 360 if plot_center_lon < 0 else plot_center_lon
+    print(f"Plot Center Latitude: {plot_center_lat}")
+    print(f"Plot Center Longitude: {plot_center_lon}")
+
+    import numpy as np
+
+    # Initialize variables to store the minimum distance and nearest pixel information
+    min_distance = float('inf')
+    nearest_pixel_info = None
+    max_wind = 0
+    for filename, ds in datasets.items():
+        try:
+            lat_values = ds['lat'].values
+            lon_values = ds['lon'].values
+            wind_speed_values = ds['wind_speed'].values * 1.94384
+            for row_index in range(lat_values.shape[0]):
+                for col_index in range(lat_values.shape[1]):
+                    pixel_lat = lat_values[row_index, col_index]
+                    pixel_lon = lon_values[row_index, col_index]
+                    distance = np.sqrt((pixel_lat - plot_center_lat)**2 + (pixel_lon - plot_center_lon)**2)
+                    if distance <= 5:
+                        max_wind = max(max_wind, wind_speed_values[row_index, col_index])
+                    if distance < min_distance:
+                        min_distance = distance
+                        nearest_pixel_info = (filename, (row_index, col_index))
+
+        except KeyError as e:
+            print(f"Error: Variable {e} not found in dataset {filename}")
+        except Exception as e:
+            print(f"Error processing dataset {filename}: {e}")
+
+    max_wind_converted = ((0.014 * (max_wind/1.94384) ** 2) + (0.821 * (max_wind/1.94384)) + 0.961) * 1.94384
+
+    if nearest_pixel_info:
+        print(f"The nearest pixel to the plot center is in file: {nearest_pixel_info[0]} at index: {nearest_pixel_info[1]}")
+        print(f"Minimum distance: {min_distance}")
+        if min_distance > 5:
+            await ctx.send("The nearest pixel to the plot center is more than 5 degrees away from the plot center. Please try again later.")
+            
+            # Close all opened datasets
+            for filename, ds in datasets.items():
+                try:
+                    ds.close()
+                    print(f"Closed dataset: {filename}")
+                except Exception as e:
+                    print(f"Error closing dataset {filename}: {e}")
+
+            print("All datasets have been closed.")
+
+            # Find all files starting with 'ascat_'
+            files_to_delete = glob.glob('ascat_*')
+            add_to_delete = glob.glob('*.xml')
+            files_to_delete.extend(add_to_delete)
+
+            print(f"Found {len(files_to_delete)} files to delete.")
+
+            # Delete each file
+            for file_path in files_to_delete:
+                try:
+                    os.remove(file_path)
+                    print(f"Deleted: {file_path}")
+                except OSError as e:
+                    print(f"Error deleting {file_path}: {e}")
+            print("Deletion process complete.")
+            
+            return
+    else:
+        print("No nearest pixel found. There might be an issue with the datasets or variables.")
+    # Access the dataset using the filename from nearest_pixel_info
+    nearest_dataset_name = nearest_pixel_info[0]
+    nearest_ds = datasets[nearest_dataset_name]
+
+    # Extract the 'time' variable from the selected dataset
+    nearest_pixel_time = nearest_ds['time'].values
+    #print(f"Time at the nearest pixel: {nearest_pixel_time}")
+    # Extract the index of the nearest pixel
+    row_index, col_index = nearest_pixel_info[1]
+    # Extract the single time value at the nearest pixel's index
+    nearest_pixel_time_value = nearest_ds['time'].values[row_index, col_index]
+
+    print(f"Single time value at the nearest pixel: {nearest_pixel_time_value}")
+
+    import pandas as pd
+
+    # Convert the nearest_pixel_time_value to a pandas Timestamp object
+    nearest_pixel_timestamp = pd.Timestamp(nearest_pixel_time_value)
+
+    # Format the pandas Timestamp object into a string
+    formatted_time_string = nearest_pixel_timestamp.strftime('%Y-%m-%d %H:%M')
+
+    # Print the formatted time string to verify the result
+    print(f"Formatted time string: {formatted_time_string}")
+
+    # Create a figure and axes with a PlateCarree projection
+    fig = plt.figure(figsize=(10, 8))
+    ax = plt.axes(projection=ccrs.PlateCarree())
+
+    # Add coastlines and countries
+    ax.add_feature(cfeature.COASTLINE, linewidth=1, edgecolor="c")
+    ax.add_feature(cfeature.BORDERS, edgecolor="w", linewidth=0.75)
+
+    # Add gridlines for reference
+    gl = ax.gridlines(draw_labels=True, linewidth=1, color='gray', alpha=0.5, linestyle='--')
+    gl.top_labels = False  # Turn off top labels
+    gl.right_labels = False # Turn off right labels
+
+    ax.set_extent([min_lon, max_lon, min_lat, max_lat], crs=ccrs.PlateCarree())
+
+    # Define color levels for wind speed
+    wind_speed_levels = np.arange(0, 80, 5)  # 0 to 75 in increments of 5
+
+    # Define custom colormap
+    colors = ['blue', 'green', 'yellow', 'red', 'purple', 'brown', 'pink']
+    cmap_name = 'ascat_cmap'
+    cm = mcolors.LinearSegmentedColormap.from_list(cmap_name, colors, N=len(wind_speed_levels)-1)
+
+    norm = mcolors.BoundaryNorm(wind_speed_levels, cm.N)
+
+    # Iterate through the opened datasets
+    for filename, ds in datasets.items():
+        try:
+            wind_speed = ds['wind_speed'] * 1.94384 #Convert to knots
+            wind_dir = ds['wind_dir']
+            lon = ds['lon']
+            lat = ds['lat']
+
+            # Convert wind direction from degrees to radians
+            wind_dir_rad = np.deg2rad(wind_dir)
+
+            # Calculate U and V components
+            u_full = wind_speed * np.sin(wind_dir_rad)
+            v_full = wind_speed * np.cos(wind_dir_rad)
+
+            # Check if the dataset's spatial extent is within the desired bounds
+            # Colorcode the barbs based on wind speed
+            cs = ax.barbs(lon[:], lat[:], u_full.values, v_full.values, wind_speed.values,
+                        cmap=cm, norm=norm, length=5) # Use custom colormap
+
+        except KeyError as e:
+            print(f"Error: Variable {e} not found in dataset {filename}")
+        except Exception as e:
+            print(f"Error processing dataset {filename}: {e}")
+
+    # Create the plot title with the wind information and the time of the nearest pixel
+    #{s_ID} {storm_name}
+    title_string = f'ASCAT 25km Winds for {btkID.upper()} {stormName} | {satellite_search.upper()} | {formatted_time_string} UTC\nMax wind (unconverted) = {max_wind:.02f} kts | Max wind (converted) = {max_wind_converted:.02f} kts'
+
+    ax.set_title(title_string)
+    ax.set_xlabel('Longitude')
+    ax.set_ylabel('Latitude')
+
+    # Add a colorbar
+    cbar = fig.colorbar(cs, ticks=wind_speed_levels)
+    cbar.set_label('Wind Speed (knots)')
+
+    plt.tight_layout()
+    import random
+    image_path = f'ascat_nc{random.randint(1, 100)}.png'
+    plt.savefig(image_path, format='png', bbox_inches='tight')
+    plt.close()
+
+    async def send_image(image_path):
+        with open(image_path, 'rb') as image_file:
+            image = discord.File(image_file)
+            await ctx.send(file=image)
+
+    # Send the generated image
+    await send_image(image_path)
+
+    # Remove the temporary image file
+    os.remove(image_path)
+
+    # Close all opened datasets
+    for filename, ds in datasets.items():
+        try:
+            ds.close()
+            print(f"Closed dataset: {filename}")
+        except Exception as e:
+            print(f"Error closing dataset {filename}: {e}")
+
+    print("All datasets have been closed.")
+
+    # Find all files starting with 'ascat_'
+    files_to_delete = glob.glob('ascat_*')
+    add_to_delete = glob.glob('*.xml')
+    files_to_delete.extend(add_to_delete)
+
+    print(f"Found {len(files_to_delete)} files to delete.")
+
+    # Delete each file
+    for file_path in files_to_delete:
+        try:
+            os.remove(file_path)
+            print(f"Deleted: {file_path}")
+        except OSError as e:
+            print(f"Error deleting {file_path}: {e}")
+    print("Deletion process complete.")
+
+@bot.command(name='ascatplot_tc')
+async def ascatplot_tc(ctx, satellite_search:str, btkID:str, yr, hour:int, date:str):
     import datetime
     from eumdac.token import AccessToken
     from eumdac.datastore import DataStore
@@ -5801,7 +6173,7 @@ async def ascatplot_ibtracs(ctx, btkID:str, yr, satellite_search:str, hour:int, 
     # Calculate the center latitude and longitude for the plot
     plot_center_lat = (min_lat + max_lat) / 2
     plot_center_lon = (min_lon + max_lon) / 2
-
+    plot_center_lon = plot_center_lon + 360 if plot_center_lon < 0 else plot_center_lon
     print(f"Plot Center Latitude: {plot_center_lat}")
     print(f"Plot Center Longitude: {plot_center_lon}")
 
@@ -5810,16 +6182,19 @@ async def ascatplot_ibtracs(ctx, btkID:str, yr, satellite_search:str, hour:int, 
     # Initialize variables to store the minimum distance and nearest pixel information
     min_distance = float('inf')
     nearest_pixel_info = None
-
+    max_wind = 0
     for filename, ds in datasets.items():
         try:
             lat_values = ds['lat'].values
             lon_values = ds['lon'].values
+            wind_speed_values = ds['wind_speed'].values * 1.94384
             for row_index in range(lat_values.shape[0]):
                 for col_index in range(lat_values.shape[1]):
                     pixel_lat = lat_values[row_index, col_index]
                     pixel_lon = lon_values[row_index, col_index]
                     distance = np.sqrt((pixel_lat - plot_center_lat)**2 + (pixel_lon - plot_center_lon)**2)
+                    if distance <= 5:
+                        max_wind = max(max_wind, wind_speed_values[row_index, col_index])
                     if distance < min_distance:
                         min_distance = distance
                         nearest_pixel_info = (filename, (row_index, col_index))
@@ -5828,6 +6203,8 @@ async def ascatplot_ibtracs(ctx, btkID:str, yr, satellite_search:str, hour:int, 
             print(f"Error: Variable {e} not found in dataset {filename}")
         except Exception as e:
             print(f"Error processing dataset {filename}: {e}")
+
+    max_wind_converted = ((0.014 * (max_wind/1.94384) ** 2) + (0.821 * (max_wind/1.94384)) + 0.961) * 1.94384
 
     if nearest_pixel_info:
         print(f"The nearest pixel to the plot center is in file: {nearest_pixel_info[0]} at index: {nearest_pixel_info[1]}")
@@ -5894,8 +6271,8 @@ async def ascatplot_ibtracs(ctx, btkID:str, yr, satellite_search:str, hour:int, 
     ax = plt.axes(projection=ccrs.PlateCarree())
 
     # Add coastlines and countries
-    ax.add_feature(cfeature.COASTLINE, linewidth=1, color="c")
-    ax.add_feature(cfeature.BORDERS, color="w", linewidth=0.75)
+    ax.add_feature(cfeature.COASTLINE, linewidth=1, edgecolor="c")
+    ax.add_feature(cfeature.BORDERS, edgecolor="w", linewidth=0.75)
 
     # Add gridlines for reference
     gl = ax.gridlines(draw_labels=True, linewidth=1, color='gray', alpha=0.5, linestyle='--')
@@ -5941,7 +6318,7 @@ async def ascatplot_ibtracs(ctx, btkID:str, yr, satellite_search:str, hour:int, 
 
     # Create the plot title with the wind information and the time of the nearest pixel
     #{s_ID} {storm_name}
-    title_string = f'ASCAT 25km Winds for {s_ID}{storm_name} | {satellite_search.upper()} | {formatted_time_string} UTC'
+    title_string = f'ASCAT 25km Winds for {s_ID} {storm_name} | {satellite_search.upper()} | {formatted_time_string} UTC\nMax wind (unconverted) = {max_wind:.02f} kts | Max wind (converted) = {max_wind_converted:.02f} kts'
 
     ax.set_title(title_string)
     ax.set_xlabel('Longitude')
@@ -6111,7 +6488,7 @@ async def ascatplot(ctx, satellite_search:str, lat:float, lon:float, hour:int, d
     # Calculate the center latitude and longitude for the plot
     plot_center_lat = (min_lat + max_lat) / 2
     plot_center_lon = (min_lon + max_lon) / 2
-
+    plot_center_lon = plot_center_lon + 360 if plot_center_lon < 0 else plot_center_lon
     print(f"Plot Center Latitude: {plot_center_lat}")
     print(f"Plot Center Longitude: {plot_center_lon}")
 
@@ -6120,16 +6497,20 @@ async def ascatplot(ctx, satellite_search:str, lat:float, lon:float, hour:int, d
     # Initialize variables to store the minimum distance and nearest pixel information
     min_distance = float('inf')
     nearest_pixel_info = None
-
+    max_wind = 0
     for filename, ds in datasets.items():
         try:
             lat_values = ds['lat'].values
             lon_values = ds['lon'].values
+            wind_speed_values = ds['wind_speed'].values * 1.94384
             for row_index in range(lat_values.shape[0]):
                 for col_index in range(lat_values.shape[1]):
                     pixel_lat = lat_values[row_index, col_index]
                     pixel_lon = lon_values[row_index, col_index]
                     distance = np.sqrt((pixel_lat - plot_center_lat)**2 + (pixel_lon - plot_center_lon)**2)
+                    if distance <= 5:
+                        if max_wind < wind_speed_values[row_index, col_index]:
+                            max_wind = wind_speed_values[row_index, col_index]
                     if distance < min_distance:
                         min_distance = distance
                         nearest_pixel_info = (filename, (row_index, col_index))
@@ -6138,6 +6519,8 @@ async def ascatplot(ctx, satellite_search:str, lat:float, lon:float, hour:int, d
             print(f"Error: Variable {e} not found in dataset {filename}")
         except Exception as e:
             print(f"Error processing dataset {filename}: {e}")
+
+    max_wind_converted = ((0.014 * (max_wind/1.94384) ** 2) + (0.821 * (max_wind/1.94384)) + 0.961) * 1.94384
 
     if nearest_pixel_info:
         print(f"The nearest pixel to the plot center is in file: {nearest_pixel_info[0]} at index: {nearest_pixel_info[1]}")
@@ -6204,8 +6587,8 @@ async def ascatplot(ctx, satellite_search:str, lat:float, lon:float, hour:int, d
     ax = plt.axes(projection=ccrs.PlateCarree())
 
     # Add coastlines and countries
-    ax.add_feature(cfeature.COASTLINE, linewidth=1, color="c")
-    ax.add_feature(cfeature.BORDERS, color="w", linewidth=0.75)
+    ax.add_feature(cfeature.COASTLINE, linewidth=1, edgecolor="c")
+    ax.add_feature(cfeature.BORDERS, edgecolor="w", linewidth=0.75)
 
     # Add gridlines for reference
     gl = ax.gridlines(draw_labels=True, linewidth=1, color='gray', alpha=0.5, linestyle='--')
@@ -6250,7 +6633,7 @@ async def ascatplot(ctx, satellite_search:str, lat:float, lon:float, hour:int, d
             print(f"Error processing dataset {filename}: {e}")
 
     # Create the plot title with the wind information and the time of the nearest pixel
-    title_string = f'ASCAT 25km Winds ({center_lat}, {center_lon}) | {satellite_search.upper()} | {formatted_time_string} UTC'
+    title_string = f'ASCAT 25km Winds ({center_lat}, {center_lon}) | {satellite_search.upper()} | {formatted_time_string} UTC\nMax wind (unconverted) = {max_wind:.02f} kts | Max wind (converted) = {max_wind_converted:.02f} kts'
 
     ax.set_title(title_string)
     ax.set_xlabel('Longitude')
@@ -6606,7 +6989,6 @@ async def satcon(ctx, id:str, yr:str):
     else:
         await ctx.send("Error 404: The image either does not exist or is yet to be created.")
 
-
 @bot.command(name='dprint')
 async def dprint(ctx, id:str, yr:str):
     import requests
@@ -6689,7 +7071,6 @@ async def dvorak_eye(ctx, embed:str, eye:str, surr:str):
     dt = eyeNum[embedCode[embed]] + eyeAdjustment[surrCode[surr]][eyeCode[eye]]
     dt = float(dt)
     await ctx.send(f"DT: {dt}")
-
 
 @bot.command(name='dvorak_embed')
 async def dvorak_embed(ctx, embed:str):
@@ -7174,8 +7555,8 @@ async def mcfetch_nc(ctx, btkID, yr, hour, date, col:str):
 
         pcolor = ax.pcolormesh(lon_np, lat_np, data_np, cmap=cmap, vmax=vmax, vmin=vmin, transform=projection)
 
-        ax.add_feature(cfeature.COASTLINE, linewidth=1, color="c")
-        ax.add_feature(cfeature.BORDERS, color="w", linewidth=0.75)
+        ax.add_feature(cfeature.COASTLINE, linewidth=1, edgecolor="c")
+        ax.add_feature(cfeature.BORDERS, edgecolor="w", linewidth=0.75)
         
         ax.set_title(f'MCFETCH Band {str(bandIRMapping[satellite]).zfill(2)} Brightness Temperature IR | {time_string} UTC {date_string}\n{s_ID} {storm_name} | Satellite: {satellite} | Max center temp: {max_bt_celsius:.2f}°C')
 
@@ -7360,8 +7741,8 @@ async def mcfetch_pro(ctx, satellite, band, cdy:float, cdx:float, hour, date, co
 
         pcolor = ax.pcolormesh(lon_np, lat_np, data_np, cmap=cmap, vmax=vmax, vmin=vmin, transform=projection)
 
-        ax.add_feature(cfeature.COASTLINE, linewidth=1, color="c")
-        ax.add_feature(cfeature.BORDERS, color="w", linewidth=0.75)
+        ax.add_feature(cfeature.COASTLINE, linewidth=1, edgecolor="c")
+        ax.add_feature(cfeature.BORDERS, edgecolor="w", linewidth=0.75)
         
         ax.set_title(f'MCFETCH Band {str(band).zfill(2)} Brightness Temperature | {time_string} UTC {date_string}\n({cdy}, {cdx}) | Satellite: {satellite} | Max center temp: {max_bt_celsius:.2f}°C')
 
@@ -7414,7 +7795,6 @@ async def cmap_help(ctx):
 
     await ctx.send(f"List of IR colorscales: {cmap_counter.ir}\n\nList of WV colorscales: {cmap_counter.wv}")
     
-
 @bot.command(name='mcfetch_help')
 async def mcfetch_help(ctx):
     image2 = 'MCFETCH_SATELLITESv2.webp'
@@ -7833,8 +8213,8 @@ async def gridsat_custom(ctx, lat:float, lon:float, hour:int, time:str, col:str,
     pcolor = ax.pcolormesh(selected_lon_plot, selected_lat, selected_brightness_temp, cmap=cmap, transform=projection, vmax=vmax-273.15, vmin=vmin-273.15)
     #ax.set_extent([lon[-1], lon[0], lat[-1], lat[0]], crs=ccrs.PlateCarree())
     from matplotlib import colors      
-    ax.add_feature(cfeature.COASTLINE, linewidth=1, color="c")
-    ax.add_feature(cfeature.BORDERS, color="w", linewidth=0.75)
+    ax.add_feature(cfeature.COASTLINE, linewidth=1, edgecolor="c")
+    ax.add_feature(cfeature.BORDERS, edgecolor="w", linewidth=0.75)
     #ax.add_feature(cfeature.LAND, facecolor=colors.to_rgba("c", 0.25))
     ax.set_xlabel('Longitude (degrees)')
     ax.set_ylabel('Latitude (degrees)')
@@ -7877,8 +8257,6 @@ async def gridsat_custom(ctx, lat:float, lon:float, hour:int, time:str, col:str,
 
     dataset.close()
     os.remove(destination)
-
-    
 
 @bot.command(name='gridsat')
 async def gridsat(ctx, btkID:str, yr:str, hour:int, time:str, col:str, override = ''):
@@ -8157,8 +8535,8 @@ async def gridsat(ctx, btkID:str, yr:str, hour:int, time:str, col:str, override 
         brightness_temp['lon'] = xr.where(brightness_temp['lon'] < 0, brightness_temp['lon'] + 180, brightness_temp['lon'] - 180)
 
         pcolor = ax.pcolormesh(brightness_temp['lon'], brightness_temp['lat'], brightness_temp, cmap=cmap, transform=projection, vmax=vmax, vmin=vmin)
-        ax.add_feature(cfeature.COASTLINE, linewidth=1, color="c")
-        ax.add_feature(cfeature.BORDERS, color="w", linewidth=0.75)
+        ax.add_feature(cfeature.COASTLINE, linewidth=1, edgecolor="c")
+        ax.add_feature(cfeature.BORDERS, edgecolor="w", linewidth=0.75)
         #ax.add_feature(cfeature.LAND, facecolor=colors.to_rgba("c", 0.25))
         ax.set_xlabel('Longitude (degrees_east)')
         ax.set_ylabel('Latitude (degrees_north)')
@@ -8278,8 +8656,8 @@ async def gridsat(ctx, btkID:str, yr:str, hour:int, time:str, col:str, override 
     pcolor = ax.pcolormesh(selected_lon_plot, selected_lat, selected_brightness_temp, cmap=cmap, transform=projection, vmax=vmax-273.15, vmin=vmin-273.15)
     #ax.set_extent([lon[-1], lon[0], lat[-1], lat[0]], crs=ccrs.PlateCarree())
     from matplotlib import colors      
-    ax.add_feature(cfeature.COASTLINE, linewidth=1, color="c")
-    ax.add_feature(cfeature.BORDERS, color="w", linewidth=0.75)
+    ax.add_feature(cfeature.COASTLINE, linewidth=1, edgecolor="c")
+    ax.add_feature(cfeature.BORDERS, edgecolor="w", linewidth=0.75)
     #ax.add_feature(cfeature.LAND, facecolor=colors.to_rgba("c", 0.25))
     ax.set_xlabel('Longitude (degrees_east)')
     ax.set_ylabel('Latitude (degrees_north)')
@@ -8613,7 +8991,6 @@ async def hodoplot(ctx, btkID:str, yr:str, hour:int, day:int, month:int, year:in
         image = discord.File(image_file)
         await ctx.send(file=image)
     os.remove(image_path)
-
 
 @bot.command(name='hodoplot_custom')
 async def hodoplot_custom(ctx, lat:float, lon:float, hour, day, month, year, gridres=5):
@@ -9214,7 +9591,6 @@ async def batsirai(ctx):
         image = discord.File(image_file)
         await ctx.send(file=image)
 
-
 @bot.command(name='megaslop')
 async def megaslop(ctx):
     image_path1 = 'gfsmegalop.webp'
@@ -9551,4 +9927,4 @@ async def commandHelp(ctx):
     await ctx.send("For the full command list, consult the google document here:\n")
     await ctx.send(url)
 
-bot.run('AUTH_TOKEN')
+bot.run(AUTH_TOKEN)
