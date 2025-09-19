@@ -5760,7 +5760,7 @@ async def ascatplot_bt(ctx, satellite_search:str, btkID:str):
     all_files = os.listdir('.')
 
     # Filter for NetCDF files that start with 'ascat_' and end with '.nc'
-    netcdf_files = [f for f in all_files if f.startswith('ascat_') and f.endswith('.nc')]
+    netcdf_files = [f for f in all_files if (f.startswith('ascat_') or f.startswith('OASW')) and f.endswith('.nc')]
 
     print(f"Found {len(netcdf_files)} NetCDF files to open.")
 
@@ -5838,6 +5838,8 @@ async def ascatplot_bt(ctx, satellite_search:str, btkID:str):
             # Find all files starting with 'ascat_'
             files_to_delete = glob.glob('ascat_*')
             add_to_delete = glob.glob('*.xml')
+            files_to_delete.extend(add_to_delete)
+            add_to_delete = glob.glob('OASW*')
             files_to_delete.extend(add_to_delete)
 
             print(f"Found {len(files_to_delete)} files to delete.")
@@ -5971,6 +5973,8 @@ async def ascatplot_bt(ctx, satellite_search:str, btkID:str):
     # Find all files starting with 'ascat_'
     files_to_delete = glob.glob('ascat_*')
     add_to_delete = glob.glob('*.xml')
+    files_to_delete.extend(add_to_delete)
+    add_to_delete = glob.glob('OASW*')
     files_to_delete.extend(add_to_delete)
 
     print(f"Found {len(files_to_delete)} files to delete.")
@@ -6145,7 +6149,7 @@ async def ascatplot_tc(ctx, satellite_search:str, btkID:str, yr, hour:int, date:
     all_files = os.listdir('.')
 
     # Filter for NetCDF files that start with 'ascat_' and end with '.nc'
-    netcdf_files = [f for f in all_files if f.startswith('ascat_') and f.endswith('.nc')]
+    netcdf_files = [f for f in all_files if (f.startswith('ascat_') or f.startswith('OASW')) and f.endswith('.nc')]
 
     print(f"Found {len(netcdf_files)} NetCDF files to open.")
 
@@ -6225,6 +6229,8 @@ async def ascatplot_tc(ctx, satellite_search:str, btkID:str, yr, hour:int, date:
             # Find all files starting with 'ascat_'
             files_to_delete = glob.glob('ascat_*')
             add_to_delete = glob.glob('*.xml')
+            files_to_delete.extend(add_to_delete)
+            add_to_delete = glob.glob('OASW*')
             files_to_delete.extend(add_to_delete)
 
             print(f"Found {len(files_to_delete)} files to delete.")
@@ -6359,6 +6365,8 @@ async def ascatplot_tc(ctx, satellite_search:str, btkID:str, yr, hour:int, date:
     files_to_delete = glob.glob('ascat_*')
     add_to_delete = glob.glob('*.xml')
     files_to_delete.extend(add_to_delete)
+    add_to_delete = glob.glob('OASW*')
+    files_to_delete.extend(add_to_delete)
 
     print(f"Found {len(files_to_delete)} files to delete.")
 
@@ -6460,7 +6468,7 @@ async def ascatplot(ctx, satellite_search:str, lat:float, lon:float, hour:int, d
     all_files = os.listdir('.')
 
     # Filter for NetCDF files that start with 'ascat_' and end with '.nc'
-    netcdf_files = [f for f in all_files if f.startswith('ascat_') and f.endswith('.nc')]
+    netcdf_files = [f for f in all_files if (f.startswith('ascat_') or f.startswith('OASW')) and f.endswith('.nc')]
 
     print(f"Found {len(netcdf_files)} NetCDF files to open.")
 
@@ -6541,6 +6549,8 @@ async def ascatplot(ctx, satellite_search:str, lat:float, lon:float, hour:int, d
             # Find all files starting with 'ascat_'
             files_to_delete = glob.glob('ascat_*')
             add_to_delete = glob.glob('*.xml')
+            files_to_delete.extend(add_to_delete)
+            add_to_delete = glob.glob('OASW*')
             files_to_delete.extend(add_to_delete)
 
             print(f"Found {len(files_to_delete)} files to delete.")
@@ -6673,6 +6683,8 @@ async def ascatplot(ctx, satellite_search:str, lat:float, lon:float, hour:int, d
     # Find all files starting with 'ascat_'
     files_to_delete = glob.glob('ascat_*')
     add_to_delete = glob.glob('*.xml')
+    files_to_delete.extend(add_to_delete)
+    add_to_delete = glob.glob('OASW*')
     files_to_delete.extend(add_to_delete)
 
     print(f"Found {len(files_to_delete)} files to delete.")
