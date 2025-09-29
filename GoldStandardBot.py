@@ -268,9 +268,9 @@ async def btk(ctx, btkID:str, yr:str, plotter=''):
         btkID = _00x_to_xx00(btkID)
 
     if btkID[:2] in ['sh', 'wp', 'io']:
-        btkUrl = f'https://www.emc.ncep.noaa.gov/gc_wmb/vxt/DECKS/b{btkID}{yr}.dat'
+        btkUrl = f'https://www.natyphoon.top/atcf/temp/b{btkID}{yr}.dat'
     else:
-        btkUrl = f'https://www.emc.ncep.noaa.gov/gc_wmb/vxt/DECKS/b{btkID}{yr}.dat'
+        btkUrl = f'https://www.natyphoon.top/atcf/temp/b{btkID}{yr}.dat'
     await ctx.send(btkUrl)
     btk_data = fetch_url(btkUrl)
     parsed_data = parse_data(btk_data)
@@ -1092,13 +1092,13 @@ async def tcpass(ctx, btkID: str):
     if btkID[:2] in ['sh', 'wp', 'io']:
         if btkID[:2] == 'sh':
             if basinmonth >= 7:
-                btkUrl = f'https://www.emc.ncep.noaa.gov/gc_wmb/vxt/DECKS/b{btkID}{basinYear+1}.dat'
+                btkUrl = f'https://www.natyphoon.top/atcf/temp/b{btkID}{basinYear+1}.dat'
             else:
-                btkUrl = f'https://www.emc.ncep.noaa.gov/gc_wmb/vxt/DECKS/b{btkID}{basinYear}.dat'
+                btkUrl = f'https://www.natyphoon.top/atcf/temp/b{btkID}{basinYear}.dat'
         else:
-            btkUrl = f'https://www.emc.ncep.noaa.gov/gc_wmb/vxt/DECKS/b{btkID}{basinYear}.dat'
+            btkUrl = f'https://www.natyphoon.top/atcf/temp/b{btkID}{basinYear}.dat'
     else:
-        btkUrl = f'https://www.emc.ncep.noaa.gov/gc_wmb/vxt/DECKS/b{btkID}{basinYear}.dat'
+        btkUrl = f'https://www.natyphoon.top/atcf/temp/b{btkID}{basinYear}.dat'
 
     btk_data = fetch_url(btkUrl)
     parsed_data = parse_data(btk_data)
@@ -1406,13 +1406,13 @@ async def gfs_streamlines(ctx, btkID:str, mb:int=200):
     if btkID[:2] in ['sh', 'wp', 'io']:
         if btkID[:2] == 'sh':
             if basinmonth >= 7:
-                btkUrl = f'https://www.emc.ncep.noaa.gov/gc_wmb/vxt/DECKS/b{btkID}{basinYear+1}.dat'
+                btkUrl = f'https://www.natyphoon.top/atcf/temp/b{btkID}{basinYear+1}.dat'
             else:
-                btkUrl = f'https://www.emc.ncep.noaa.gov/gc_wmb/vxt/DECKS/b{btkID}{basinYear}.dat'
+                btkUrl = f'https://www.natyphoon.top/atcf/temp/b{btkID}{basinYear}.dat'
         else:
-            btkUrl = f'https://www.emc.ncep.noaa.gov/gc_wmb/vxt/DECKS/b{btkID}{basinYear}.dat'
+            btkUrl = f'https://www.natyphoon.top/atcf/temp/b{btkID}{basinYear}.dat'
     else:
-        btkUrl = f'https://www.emc.ncep.noaa.gov/gc_wmb/vxt/DECKS/b{btkID}{basinYear}.dat'
+        btkUrl = f'https://www.natyphoon.top/atcf/temp/b{btkID}{basinYear}.dat'
 
     btk_data = fetch_url(btkUrl)
     parsed_data = parse_data(btk_data)
@@ -1573,13 +1573,13 @@ async def tchp(ctx, btkID:str):
     if btkID[:2] in ['sh', 'wp', 'io']:
         if btkID[:2] == 'sh':
             if basinmonth >= 7:
-                btkUrl = f'https://www.emc.ncep.noaa.gov/gc_wmb/vxt/DECKS/b{btkID}{basinYear+1}.dat'
+                btkUrl = f'https://www.natyphoon.top/atcf/temp/b{btkID}{basinYear+1}.dat'
             else:
-                btkUrl = f'https://www.emc.ncep.noaa.gov/gc_wmb/vxt/DECKS/b{btkID}{basinYear}.dat'
+                btkUrl = f'https://www.natyphoon.top/atcf/temp/b{btkID}{basinYear}.dat'
         else:
-            btkUrl = f'https://www.emc.ncep.noaa.gov/gc_wmb/vxt/DECKS/b{btkID}{basinYear}.dat'
+            btkUrl = f'https://www.natyphoon.top/atcf/temp/b{btkID}{basinYear}.dat'
     else:
-        btkUrl = f'https://www.emc.ncep.noaa.gov/gc_wmb/vxt/DECKS/b{btkID}{basinYear}.dat'
+        btkUrl = f'https://www.natyphoon.top/atcf/temp/b{btkID}{basinYear}.dat'
 
     btk_data = fetch_url(btkUrl)
     parsed_data = parse_data(btk_data)
@@ -1908,13 +1908,13 @@ async def tcsst(ctx, btkID: str):
     if btkID[:2] in ['sh', 'wp', 'io']:
         if btkID[:2] == 'sh':
             if basinmonth >= 7:
-                btkUrl = f'https://www.emc.ncep.noaa.gov/gc_wmb/vxt/DECKS/b{btkID}{basinYear+1}.dat'
+                btkUrl = f'https://www.natyphoon.top/atcf/temp/b{btkID}{basinYear+1}.dat'
             else:
-                btkUrl = f'https://www.emc.ncep.noaa.gov/gc_wmb/vxt/DECKS/b{btkID}{basinYear}.dat'
+                btkUrl = f'https://www.natyphoon.top/atcf/temp/b{btkID}{basinYear}.dat'
         else:
-            btkUrl = f'https://www.emc.ncep.noaa.gov/gc_wmb/vxt/DECKS/b{btkID}{basinYear}.dat'
+            btkUrl = f'https://www.natyphoon.top/atcf/temp/b{btkID}{basinYear}.dat'
     else:
-        btkUrl = f'https://www.emc.ncep.noaa.gov/gc_wmb/vxt/DECKS/b{btkID}{basinYear}.dat'
+        btkUrl = f'https://www.natyphoon.top/atcf/temp/b{btkID}{basinYear}.dat'
 
     btk_data = fetch_url(btkUrl)
     parsed_data = parse_data(btk_data)
@@ -3131,11 +3131,16 @@ async def obsplot(ctx, stationID:str):
 
     # Drop rows where 'slp' is NaN
     data_clean = data.dropna(subset=['slp'])
+
+    # Find the minimum recorded pressure and its corresponding time
+    min_pressure = data_clean['slp'].min()
+    min_pressure_time = data_clean[data_clean['slp'] == min_pressure]['time'].iloc[0]
+
     await ctx.send("Data request successful, plotting data...")
     # Plotting the SLP vs Time
     plt.figure(figsize=(12, 6))
     plt.plot(data_clean['time'], data_clean['slp'], marker='o', linestyle='-', color='b')
-    plt.title(f'Time vs Sea Level Pressure (SLP) series of Station {stationID}')
+    plt.title(f'Time vs Sea Level Pressure (SLP) series of Station {stationID}\nMinimum Pressure: {min_pressure:.2f} hPa at {min_pressure_time.strftime("%Y-%m-%d %H:%M")}')
     plt.xlabel('Time (Date)')
     plt.ylabel('Sea Level Pressure (hPa)')
     plt.xticks(rotation=45)
@@ -3968,13 +3973,13 @@ async def smap(ctx, btkID, nodeType:str):
     if btkID[:2] in ['sh', 'wp', 'io']:
         if btkID[:2] == 'sh':
             if basinmonth >= 7:
-                btkUrl = f'https://www.emc.ncep.noaa.gov/gc_wmb/vxt/DECKS/b{btkID}{basinYear+1}.dat'
+                btkUrl = f'https://www.natyphoon.top/atcf/temp/b{btkID}{basinYear+1}.dat'
             else:
-                btkUrl = f'https://www.emc.ncep.noaa.gov/gc_wmb/vxt/DECKS/b{btkID}{basinYear}.dat'
+                btkUrl = f'https://www.natyphoon.top/atcf/temp/b{btkID}{basinYear}.dat'
         else:
-            btkUrl = f'https://www.emc.ncep.noaa.gov/gc_wmb/vxt/DECKS/b{btkID}{basinYear}.dat'
+            btkUrl = f'https://www.natyphoon.top/atcf/temp/b{btkID}{basinYear}.dat'
     else:
-        btkUrl = f'https://www.emc.ncep.noaa.gov/gc_wmb/vxt/DECKS/b{btkID}{basinYear}.dat'
+        btkUrl = f'https://www.natyphoon.top/atcf/temp/b{btkID}{basinYear}.dat'
 
     btk_data = fetch_url(btkUrl)
     parsed_data = parse_data(btk_data)
@@ -5634,13 +5639,13 @@ async def ascatplot_bt(ctx, satellite_search:str, btkID:str):
     if btkID[:2] in ['sh', 'wp', 'io']:
         if btkID[:2] == 'sh':
             if basinmonth >= 7:
-                btkUrl = f'https://www.emc.ncep.noaa.gov/gc_wmb/vxt/DECKS/b{btkID}{basinYear+1}.dat'
+                btkUrl = f'https://www.natyphoon.top/atcf/temp/b{btkID}{basinYear+1}.dat'
             else:
-                btkUrl = f'https://www.emc.ncep.noaa.gov/gc_wmb/vxt/DECKS/b{btkID}{basinYear}.dat'
+                btkUrl = f'https://www.natyphoon.top/atcf/temp/b{btkID}{basinYear}.dat'
         else:
-            btkUrl = f'https://www.emc.ncep.noaa.gov/gc_wmb/vxt/DECKS/b{btkID}{basinYear}.dat'
+            btkUrl = f'https://www.natyphoon.top/atcf/temp/b{btkID}{basinYear}.dat'
     else:
-        btkUrl = f'https://www.emc.ncep.noaa.gov/gc_wmb/vxt/DECKS/b{btkID}{basinYear}.dat'
+        btkUrl = f'https://www.natyphoon.top/atcf/temp/b{btkID}{basinYear}.dat'
 
     btk_data = fetch_url(btkUrl)
     parsed_data = parse_data(btk_data)
@@ -8422,13 +8427,13 @@ async def gridsat(ctx, btkID:str, yr:str, hour:int, time:str, col:str, override 
         file2 = f"gridsatfile_part2.nc"
         destination = "gridsatfile.nc"
         if satellite == 'unknown':
-            base_url = "https://www.ncei.noaa.gov/thredds/ncss/cdr/gridsat"
-            filename = f"GRIDSAT-B1.{year}.{str(month).zfill(2)}.{str(day).zfill(2)}.{str(hour).zfill(2)}.v02r01.nc"
-            
+            base_url = "https://www.ncei.noaa.gov/thredds/ncss/grid/cdr/gridsat"
+            filename = f"/GRIDSAT-B1.{year}.{str(month).zfill(2)}.{str(day).zfill(2)}.{str(hour).zfill(2)}.v02r01.nc"
+            time = f"{year}-{str(month).zfill(2)}-{str(day).zfill(2)}T{str(hour).zfill(2)}:00:00Z"
             # Detect IDL crossing
             if idl == False:
                 # Normal case
-                subset_url = f"{base_url}/{year}/{filename}?var=irwin_cdr&north={lat_max}&south={lat_min}&east={lon_max}&west={lon_min}&accept=netcdf"
+                subset_url = f"{base_url}/{year}/{filename}?var=irwin_cdr&north={lat_max}&south={lat_min}&east={lon_max}&west={lon_min}&&time={time}&horizStride=1&vertStride=1&&accept=netcdf3"
                 response = requests.get(subset_url)
                 if response.status_code == 200:
                     with open(destination, "wb") as f:
@@ -8438,8 +8443,8 @@ async def gridsat(ctx, btkID:str, yr:str, hour:int, time:str, col:str, override 
                     print(f"Failed to download subset. Status code: {response.status_code}")
             else:
                 # Wraparound case
-                url1 = f"{base_url}/{year}/{filename}?var=irwin_cdr&north={lat_max}&south={lat_min}&east=180&west={lon_min}&accept=netcdf"
-                url2 = f"{base_url}/{year}/{filename}?var=irwin_cdr&north={lat_max}&south={lat_min}&east={lon_max}&west=-180&accept=netcdf"
+                url1 = f"{base_url}/{year}/{filename}?var=irwin_cdr&north={lat_max}&south={lat_min}&east=180&west={lon_min}&&time={time}&horizStride=1&vertStride=1&&accept=netcdf3"
+                url2 = f"{base_url}/{year}/{filename}?var=irwin_cdr&north={lat_max}&south={lat_min}&east={lon_max}&west=-180&&time={time}&horizStride=1&vertStride=1&&accept=netcdf3"
                 
                 success = True
 
@@ -8469,7 +8474,7 @@ async def gridsat(ctx, btkID:str, yr:str, hour:int, time:str, col:str, override 
         else:
             base_url = "https://www.ncei.noaa.gov/thredds/ncss/satellite/gridsat-goes-full-disk"
             filename = f"GridSat-GOES.{satellite}.{year}.{str(month).zfill(2)}.{str(day).zfill(2)}.{str(hour).zfill(2)}00.v01.nc"
-            
+            time = f"{year}-{str(month).zfill(2)}-{str(day).zfill(2)}T{str(hour).zfill(2)}:00:00Z"
             if idl == True or idl == False:
                 if idl:
                     if lon_max > 0:
@@ -8477,7 +8482,7 @@ async def gridsat(ctx, btkID:str, yr:str, hour:int, time:str, col:str, override 
                     if lon_min > 0:
                         lon_min -= 360
 
-                subset_url = f"{base_url}/{year}/{str(month).zfill(2)}/{filename}?var=ch4&maxy={lat_max}&miny={lat_min}&maxx={lon_max}&minx={lon_min}&accept=netcdf"  
+                subset_url = f"{base_url}/{year}/{str(month).zfill(2)}/{filename}?var=ch4&maxy={lat_max}&miny={lat_min}&maxx={lon_max}&minx={lon_min}&&time={time}&&accept=netcdf3"  
                 response = requests.get(subset_url)
                 if response.status_code == 200:
                     with open("gridsatfile.nc", "wb") as f:
@@ -8486,8 +8491,8 @@ async def gridsat(ctx, btkID:str, yr:str, hour:int, time:str, col:str, override 
                 else:
                     print(f"Failed to download subset. Status code: {response.status_code}")
             else:
-                url1 = f"{base_url}/{year}/{str(month).zfill(2)}/{filename}?var=ch4&maxy={lat_max}&miny={lat_min}&maxx={((lon_min + 180) % 360) - 180}&minx=-180&accept=netcdf"
-                url2 = f"{base_url}/{year}/{str(month).zfill(2)}/{filename}?var=ch4&maxy={lat_max}&miny={lat_min}&maxx={lon_max}&minx=-180&accept=netcdf"
+                url1 = f"{base_url}/{year}/{str(month).zfill(2)}/{filename}?var=ch4&maxy={lat_max}&miny={lat_min}&maxx={((lon_min + 180) % 360) - 180}&minx=-180&&time={time}&&accept=netcdf3"
+                url2 = f"{base_url}/{year}/{str(month).zfill(2)}/{filename}?var=ch4&maxy={lat_max}&miny={lat_min}&maxx={lon_max}&minx=-180&&time={time}&&accept=netcdf3"
                 
                 success = True
 
