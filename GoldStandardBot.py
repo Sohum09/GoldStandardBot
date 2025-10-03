@@ -9574,9 +9574,9 @@ async def hursat_b1(ctx):
     await ctx.send("https://colab.research.google.com/drive/1Rgjwg3-Fd_ce17BZnyBp8gCRe5DGrkOx?usp=sharing")
 
 @bot.command(name='land_degrade')
-async def land_degrade(ctx, v0:float, hour:float, us=0):
+async def land_degrade(ctx, v0:float, hour:float, exp=0.05, us=0):
     import math
-    v_t = v0 * math.exp(-0.044 * hour) if us == 0 else v0 * math.exp(-0.08 * hour)
+    v_t = v0 * math.exp(-1 * exp * hour) if us == 0 else v0 * math.exp(-0.08 * hour)
     v_t = "{:.2f}".format(v_t)
     await ctx.send(f"The extrapolated intensity {hour} hour(s) post landfall: {v_t} Kt")
 
