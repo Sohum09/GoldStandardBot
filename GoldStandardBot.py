@@ -9559,7 +9559,187 @@ async def reconplot(ctx, basin:str, aircraftType:str):
         image = discord.File(image_file)
         await ctx.send(file=image)
 
+    os.remove(image_path) 
+
+@bot.command(name='fnv3')
+async def fnv3(ctx, btk:str, hour:str, date:str):
+    import requests
+    from io import BytesIO
+    import matplotlib.pyplot as plt
+    import cartopy.crs as ccrs
+    import cartopy.feature as cfeature # Import cartopy.feature
+    import collections # To group data
+    from matplotlib import colors
+    import matplotlib.style as mplstyle
+
+    mplstyle.use("dark_background")
+
+    day, month, year = date.split('/')
+
+    url = f'https://deepmind.google.com/science/weatherlab/download/cyclones/FNV3/ensemble/paired/atcf/FNV3_{year}_{month.zfill(2)}_{day.zfill(2)}T{hour.zfill(2)}_00_atcf_a_deck.txt'
+
+    response = requests.get(url)
+    if response.status_code == 200:
+        adeck_file = response.content
+        print('File downloaded successfully.')
+    else:
+        await ctx.send(f'Failed to download file. Status code: {response.status_code}')
+        return
+    
+    btk = btk.upper()
+    basin, btk_id = btk[:2], btk[2:]
+    
+    if 'adeck_file' in locals() and adeck_file:
+        # Assuming the file is text-based, decode it to a string
+        try:
+            file_content_str = adeck_file.decode('utf-8')
+        except UnicodeDecodeError:
+            print('Could not decode file content as UTF-8.')
+    else:
+        await ctx.send('No file content available to display. Please ensure the download was successful.')
+
+    start_data_marker = '# BEGIN DATA'
+    start_index = file_content_str.find(start_data_marker)
+
+    parsed_data = []
+
+    if start_index != -1:
+        # Get the string after '# BEGIN DATA' and split into lines
+        data_lines_str = file_content_str[start_index + len(start_data_marker):]
+        data_lines = data_lines_str.strip().split('\n')
+
+        # Iterate through each data line and extract the required information
+        for line in data_lines:
+            if not line.strip():  # Skip empty lines
+                continue
+
+            # Split by comma, handling potential extra spaces
+            fields = [field.strip() for field in line.split(',')]
+
+            # Ensure there are enough fields to prevent IndexError
+            if len(fields) >= 9: # Check for at least index 8 (wind speed)
+                storm_basin = fields[0]
+                storm_number = fields[1]
+                ensemble_identifier = fields[4] # e.g., 'F000'
+                latitude = fields[6]            # e.g., '84S'
+                longitude = fields[7]           # e.g., '973E'
+                wind_speed = fields[8]          # e.g., '35'
+
+                parsed_data.append({
+                    'storm_basin': storm_basin,
+                    'storm_number': storm_number,
+                    'ensemble_identifier': ensemble_identifier,
+                    'latitude': latitude,
+                    'longitude': longitude,
+                    'wind_speed': wind_speed
+                })
+    
+    def convert_coords(coord_str):
+        coord_str = coord_str.strip()
+        if not coord_str:
+            return None
+
+        try:
+            # Extract the numeric part and direction
+            if coord_str[-1] in ('N', 'S', 'E', 'W'):
+                direction = coord_str[-1]
+                value = float(coord_str[:-1])/10
+            else:
+                # Assume it's already a number or invalid without direction
+                return float(coord_str)/10
+
+            # Apply sign based on direction
+            if direction in ('S', 'W'):
+                return -value
+            else:
+                return value
+        except ValueError:
+            return None # Handle cases where conversion to float fails
+
+    for entry in parsed_data:
+        entry['latitude'] = convert_coords(entry['latitude'])
+        entry['longitude'] = convert_coords(entry['longitude'])
+        try:
+            entry['wind_speed'] = int(entry['wind_speed'])
+        except ValueError:
+            entry['wind_speed'] = None # Handle cases where conversion to int fails
+    
+    # 1. Create a figure and an axes object with a Cartopy projection
+    fig = plt.figure(figsize=(12, 10))
+    ax = fig.add_subplot(1, 1, 1, projection=ccrs.PlateCarree())
+
+    # 2. Add standard Cartopy features
+    ax.add_feature(cfeature.COASTLINE, linewidth=1, color="c")
+    ax.add_feature(cfeature.BORDERS, color="w", linewidth=0.5)
+    ax.add_feature(cfeature.LAND, facecolor=colors.to_rgba("c", 0.25))
+
+    gridlines = ax.gridlines(draw_labels=True, dms=True, x_inline=False, y_inline=False)
+    gridlines.top_labels = False
+    gridlines.right_labels = False
+
+    # Group data by ensemble identifier
+    ensemble_tracks = collections.defaultdict(list)
+    for dp in parsed_data:
+        if dp['storm_basin'] != basin or dp['storm_number'] != btk_id:
+            continue
+        if dp['latitude'] is not None and dp['longitude'] is not None and dp['wind_speed'] is not None:
+            ensemble_tracks[dp['ensemble_identifier']].append(dp)
+
+    print(f"Grouped {len(parsed_data)} data points into {len(ensemble_tracks)} ensembles.")
+
+    # Define wind speed categories and colors for plotting
+    wind_categories = {
+        'Tropical Depression': (0, 33, 'b'),
+        'Tropical Storm': (34, 63, 'g'),
+        'Category 1': (64, 82, '#ffff00'),
+        'Category 2': (83, 95, '#ffa001'),
+        'Category 3': (96, 112, '#ff5908'),
+        'Category 4': (113, 136, 'r'),
+        'Category 5': (137, 200, 'm') # Upper bound can be adjusted
+    }
+
+    # Plot each ensemble track and scatter points
+    for ensemble_id, track_points in ensemble_tracks.items():
+        lons = [p['longitude'] for p in track_points]
+        lats = [p['latitude'] for p in track_points]
+        wind_speeds = [p['wind_speed'] for p in track_points]
+
+        # Plot the main track line (optional, but good for context)
+        ax.plot(lons, lats, color='gray', linestyle='-', linewidth=0.5, transform=ccrs.PlateCarree(), alpha=0.5, label='_nolegend_')
+
+        # Plot scatter points colored by wind speed
+        for lon, lat, ws in zip(lons, lats, wind_speeds):
+            color = 'black' # Default color if no category matches
+            for category, (min_ws, max_ws, cat_color) in wind_categories.items():
+                if min_ws <= ws <= max_ws:
+                    color = cat_color
+                    break
+            ax.scatter(lon, lat, color=color, s=1, transform=ccrs.PlateCarree(), zorder=2)
+
+    # Add title and show plot
+    plt.title(f'Google FNV3 ensembles for {btk} | Run: {hour}:00 UTC {date}')
+
+    # Create a legend for wind intensity
+    legend_elements = []
+    for category, (min_ws, max_ws, cat_color) in wind_categories.items():
+        legend_elements.append(plt.Line2D([0], [0], marker='o', color='w', label=f'{category} ({min_ws}-{max_ws} kt)',
+                                        markerfacecolor=cat_color, markersize=10))
+
+    ax.legend(handles=legend_elements, title='Wind Speed (knots)')
+
+    plt.tight_layout()
+
+    import os
+    image_path = f'FNV3_Map.png'
+    plt.savefig(image_path, format='png', bbox_inches='tight')
+    plt.close()
+
+    with open(image_path, 'rb') as image_file:
+        image = discord.File(image_file)
+        await ctx.send(file=image)
+
     os.remove(image_path)  
+
 
 @bot.command(name='tcprimed')
 async def tcprimed(ctx):
@@ -9572,6 +9752,10 @@ async def hursat_avhrr(ctx):
 @bot.command(name='hursat_b1')
 async def hursat_b1(ctx):
     await ctx.send("https://colab.research.google.com/drive/1Rgjwg3-Fd_ce17BZnyBp8gCRe5DGrkOx?usp=sharing")
+
+@bot.command(name='gms')
+async def gms(ctx):
+    await ctx.send("https://colab.research.google.com/drive/10JApYL7x9ACqfU2E_Oy514a8dw6j1RTP?usp=sharing")
 
 @bot.command(name='land_degrade')
 async def land_degrade(ctx, v0:float, hour:float, exp=0.05, us=0):
@@ -9731,6 +9915,28 @@ async def tolkienhatesnatl(ctx):
                     "So! Thou hadst already stolen half my loved wejjes. Now thou stealest the MJO and SSTs also, "+
                     "so that they rob me wholly of my wejjes at last. But in this at least thou shalt not defy my will: "+
                     "to rule my own end.```")
+
+@bot.command(name='neoguri')
+async def neoguri(ctx):
+    await ctx.send("```THE INITIAL INTENSITY OF 95 KTS IS ASSESSED WITH MEDIUM CONFIDENCE BASED ON THE SAME ASCAT IMAGE WHILE SUPPORTED BY THE AGENCY AND OBJECTIVE FIXES LISTED BELOW.```")
+    image_path = 'neoguri_ascat.webp'
+
+    with open(image_path, 'rb') as image_file:
+        image = discord.File(image_file)
+        await ctx.send(file=image)
+    image_path = 'neoguri_ir.webp'
+
+    with open(image_path, 'rb') as image_file:
+        image = discord.File(image_file)
+        await ctx.send(file=image)
+
+@bot.command(name='shoum_plane')
+async def shoum_plane(ctx):
+    image_path = 'shoum_plane.webp'
+
+    with open(image_path, 'rb') as image_file:
+        image = discord.File(image_file)
+        await ctx.send(file=image)
 
 @bot.command(name='bestestAgency')
 async def bestestAgency(ctx):
