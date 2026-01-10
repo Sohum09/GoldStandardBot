@@ -48,7 +48,7 @@ async def atcf(ctx, info=""):
     http = urllib3.PoolManager(cert_reqs='CERT_NONE', assert_hostname=False)
 
     # URL of the ATCF data
-    atcf_url = 'https://science.nrlmry.navy.mil/geoips/tcdat/sectors/atcf_sector_file'
+    atcf_url = 'https://science.nrlmry.navy.mil/geoips/tcdat/sectors/sector_file'
 
     # Step 2: Fetch ATCF data:
     def fetch_atcf_data(url):
@@ -912,16 +912,15 @@ async def tcpass_custom(ctx, latitude:float, longitude:float, width=4):
     SATELLITES = ["29522", "35951", "28054", "27424", "25994", "39260", "43010", "41882",
                 "38337", "38771", "43689", "54234", "43013", "33591", "28654", "37849",
                 "39574", "39634", "36036", "40376", 
-                "44322", "44324", "44323", "32382", "64694", "59481", "62261"]
+                "44322", "44324", "44323", "32382", "64694", "59481", "62261", "65053", "65159"]
     #Archived TROPICS Passes: "56753", "56442", "56444", "56754", 
     satelliteMap = {"28054":"DMSP F16", "29522":"DMSP F17", "35951":"DMSP F18", "27424":"AQUA",
                     "25994": "TERRA", "39260":"FENGYUN 3C", "43010":"FENGYUN 3D", "41882":"FENGYUN 4A",
                     "38337":"GCOM-W1", "38771":"METOP-B", "43689":"METOP-C", "54234":"NOAA 21", "43013":"NOAA 20",
                     "33591":"NOAA 19", "28654":"NOAA 18", "37849":"SUOMI NPP", "39574":"GPM-CORE", 
                     "56753":"TROPICS-03", "56442":"TROPICS-05", "56444":"TROPICS-06", "56754":"TROPICS-07", "39634":"SENTINEL-1A",
-                    "36036": "SMOS", "40376":"SMAP", "44322":"RCM-1", "44324":"RCM-2", "44323":"RCM-3", "32382":"RADARSAT-2",
-                    "64694":"GOSAT-GW", "59481":"WSF-M", "62261":"SENTINEL-1C"}
-
+                    "36036":"SMOS", "40376":"SMAP", "44322":"RCM-1", "44324":"RCM-2", "44323":"RCM-3", "32382":"RADARSAT-2",
+                    "64694":"GOSAT-GW", "59481": "WSF-M", "62261":"SENTINEL-1C", "65053":"NISAR", "65159":"METOP-SGA1"}
 
     # Function to fetch data for a single satellite
     def fetch_data_for_satellite(satellite):
@@ -1147,7 +1146,7 @@ async def tcpass(ctx, btkID: str):
     SATELLITES = ["29522", "35951", "28054", "27424", "25994", "39260", "43010", "41882",
                 "38337", "38771", "43689", "54234", "43013", "33591", "28654", "37849",
                 "39574", "39634", "36036", "40376", 
-                "44322", "44324", "44323", "32382", "64694", "59481", "62261"]
+                "44322", "44324", "44323", "32382", "64694", "59481", "62261", "65053", "65159"]
     #Archived TROPICS Passes: "56753", "56442", "56444", "56754", 
     satelliteMap = {"28054":"DMSP F16", "29522":"DMSP F17", "35951":"DMSP F18", "27424":"AQUA",
                     "25994": "TERRA", "39260":"FENGYUN 3C", "43010":"FENGYUN 3D", "41882":"FENGYUN 4A",
@@ -1155,7 +1154,7 @@ async def tcpass(ctx, btkID: str):
                     "33591":"NOAA 19", "28654":"NOAA 18", "37849":"SUOMI NPP", "39574":"GPM-CORE", 
                     "56753":"TROPICS-03", "56442":"TROPICS-05", "56444":"TROPICS-06", "56754":"TROPICS-07", "39634":"SENTINEL-1A",
                     "36036":"SMOS", "40376":"SMAP", "44322":"RCM-1", "44324":"RCM-2", "44323":"RCM-3", "32382":"RADARSAT-2",
-                    "64694":"GOSAT-GW", "59481": "WSF-M", "62261":"SENTINEL-1C"}
+                    "64694":"GOSAT-GW", "59481": "WSF-M", "62261":"SENTINEL-1C", "65053":"NISAR", "65159":"METOP-SGA1"}
 
 
     # Function to fetch data for a single satellite
@@ -5696,8 +5695,8 @@ async def ascatplot_bt(ctx, satellite_search:str, btkID:str):
     satellite_search = satellite_search.lower()
     await ctx.send("Searching for files...")
 
-    consumer_key = 'CONSUMER_KEY'
-    consumer_secret = 'CONSUMER_SECRET'
+    consumer_key = 'wtKUWAQfRCdO1FytzDQfGHh0Qgca'
+    consumer_secret = 'mimp9pVkOad5ie7zVyaf_H7phOwa'
 
     credentials = (consumer_key, consumer_secret)
     token = AccessToken(credentials)
@@ -6085,8 +6084,8 @@ async def ascatplot_tc(ctx, satellite_search:str, btkID:str, yr, hour:int, date:
 
     await ctx.send("Searching for files...")
 
-    consumer_key = 'CONSUMER_KEY'
-    consumer_secret = 'CONSUMER_SECRET'
+    consumer_key = 'wtKUWAQfRCdO1FytzDQfGHh0Qgca'
+    consumer_secret = 'mimp9pVkOad5ie7zVyaf_H7phOwa'
 
     credentials = (consumer_key, consumer_secret)
     token = AccessToken(credentials)
@@ -6403,8 +6402,8 @@ async def ascatplot(ctx, satellite_search:str, lat:float, lon:float, hour:int, d
     satellite_search = satellite_search.lower()
     await ctx.send("Searching for files...")
 
-    consumer_key = 'CONSUMER_KEY'
-    consumer_secret = 'CONSUMER_SECRET'
+    consumer_key = 'wtKUWAQfRCdO1FytzDQfGHh0Qgca'
+    consumer_secret = 'mimp9pVkOad5ie7zVyaf_H7phOwa'
 
     credentials = (consumer_key, consumer_secret)
     token = AccessToken(credentials)
@@ -7814,7 +7813,7 @@ async def cmap_help(ctx):
     
 @bot.command(name='mcfetch_help')
 async def mcfetch_help(ctx):
-    image2 = 'MCFETCH_SATELLITESv2.webp'
+    image2 = 'mcfetch_sat.webp'
     image1 = 'documentation.webp'
     with open(image1, 'rb') as image_file:
         image1 = discord.File(image_file)
@@ -7905,6 +7904,31 @@ async def zonal_anom(ctx):
         image_data = BytesIO(response.content)
 
         await ctx.send(file=discord.File(image_data, 'image.png'))
+    else:
+        await ctx.send("Error 404: The image either does not exist or is yet to be created.")
+
+@bot.command(name='ssd_floater')
+async def ssd_floater(ctx, atcf_id, sat_type='bd'):
+    import requests
+    from io import BytesIO
+
+    atcf_id = atcf_id.upper()
+    sat_type = sat_type.lower()
+
+    if atcf_id == 'HELP':
+        await ctx.send("Available Types: [vis, swir, wv, rgb, ir, avn, bd, jsl, ft, rb, rbtop]")
+        return
+
+    url = f"https://www.ospo.noaa.gov/tropical-floaters/{atcf_id}/imagery/{sat_type}0-lalo.gif"
+
+    response = requests.get(url)
+    await ctx.send("Please hold as the data loads.")
+
+    if response.status_code == 200:
+        response = requests.get(url)
+        image_data = BytesIO(response.content)
+
+        await ctx.send(file=discord.File(image_data, f'floater_{atcf_id}.gif'))
     else:
         await ctx.send("Error 404: The image either does not exist or is yet to be created.")
 
