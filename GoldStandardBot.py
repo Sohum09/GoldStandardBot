@@ -698,6 +698,32 @@ async def rev_ckz(ctx, pres:float, storm_movement:float, latitude:float, roci:fl
     vmax = "{:.2f}".format(vmax)
     await ctx.send(f"Output winds: {vmax} kt")'''
 
+@bot.command(name='rmw')
+async def rmw(ctx, vmax_kt_1min:float, lat:float, roci_nm:float):
+    import math
+
+    #Preprocessing...
+    roci_m = roci_nm * 1.852 * 1000 # Convert nautical miles of ROCI to km and then to m, i.e., SI Units...
+    f = 2 * (7.292 * 10**(-5)) * abs(math.sin(lat*math.pi/180)) # Calculating Coriolis Parameter...
+    vmax_ms = (vmax_kt_1min * 0.93) / 1.944 # Convert 1min winds to its 10min equivalent and then convert to m/s...
+
+    #Step 1 of procedure: Calculate M_roci...
+    M_roci = (roci_m * 11.39) + (0.5 * f * (roci_m ** 2)) # V_roci assumed to be 11.39
+
+    #Step 2 of procedure: Calculate momentum ratio...
+    b, beta_1, beta_2 = 0.24, -0.0030281, -0.00080726 # Input derived constants
+    momentum_ratio = b * math.exp((beta_1 * (vmax_ms - 11.39)) + (beta_2 * (vmax_ms - 11.39) * ((f * roci_m)/2)))
+
+    #Step 3 of procedure: Calculate M_rmw...
+    M_rmw = momentum_ratio * M_roci
+
+    #Step 4 of procedure: Calculate final RMW value...
+    R_rmw = (vmax_ms/f) * (math.sqrt(1 + (2 * f * M_rmw)/(vmax_ms**2)) - 1)
+
+    #Return value in Nautical Miles (nm) as well as Kilometers (km)...
+    R_rmw_nm = R_rmw / 1852
+    await ctx.send(f"Estimated RMW value of TC = {R_rmw_nm:.2f} nm, {R_rmw/1000:.2f} km")
+
 @bot.command(name='messup')
 async def messup(ctx):
     await ctx.send("The creator of this bot has made a terrible mistake and is currently reflecting on his life choices while rectifying it.")
