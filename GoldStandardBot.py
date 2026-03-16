@@ -7419,11 +7419,14 @@ async def mwplot(ctx, atcfid, instrument, time:str, date:str, type='89', control
     if 'AMSR2' in ins_name: query_ins = 'AMSR2'
     if 'AMSRE' in ins_name: query_ins = 'AMSRE'
 
+    data_version = 'preliminary' if int(year) >= 2025 else 'final'
+
     tcpc.query({
         'atcf_id': [atcfid], 
         'file_type': [query_ins], 
         'start_date': start_search, 
-        'end_date': end_search
+        'end_date': end_search,
+        'version_type': [data_version]  # Dynamically set
     })
 
     await ctx.send("Searching S3 Bucket...")
