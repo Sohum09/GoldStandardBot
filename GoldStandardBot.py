@@ -648,7 +648,7 @@ async def ckz(ctx, vmax:float, storm_movement:float, latitude:float, roci:float,
 
     #We then display the result in an easy to read manner...
     Pc_ROCI = round(Pc(vsrm1,S_ROCI,latitude,envp), 2)
-    await ctx.send(f"CKZ Result (ROCI): {vmax} kt, {Pc_ROCI} mb")
+    await ctx.send(f"CKZ Result (ROCI): {vmax} kt, {Pc_ROCI-2} mb")
 
 @bot.command(name='rev_ckz', help='Calculate the reverse of the ckz WP relationship')
 async def rev_ckz(ctx, pres:float, storm_movement:float, latitude:float, roci:float, envp:float):
@@ -3124,59 +3124,64 @@ async def findobs(ctx, lat: float, long: float):
     os.remove("platform_data_find.csv")
 
 @bot.command(name='obsplot')
-async def obsplot(ctx, stationID:str):
+async def obsplot(ctx, stationID: str, hours: int = None): # Added optional hours parameter
     import pandas as pd
     import matplotlib.pyplot as plt
-    import os 
+    import os
+    from datetime import datetime, timedelta, timezone
 
-    await ctx.send("Due to the large database this is looking at, it may take time to search for the obs. Please be patient.")
+    await ctx.send(f"Searching for observations for {stationID}...")
 
-    # Define the URL from which to load the CSV data
     url = f"https://data.pmel.noaa.gov/pmel/erddap/tabledap/osmc_rt_60.csv?platform_code,platform_type,latitude,longitude,time,slp&orderBy(%22time%22)&platform_code=%22{str(stationID)}%22"
 
-    
-    # Read the CSV content from the URL, keeping all rows
     data = pd.read_csv(url)
-
-    # Drop the first row (index 0)
     data = data.drop(index=0)
-
-    # Reset the index after dropping the row
     data.reset_index(drop=True, inplace=True)
 
-    # Display the first few rows and the columns of the DataFrame
-    print(data.head())
-    print("Columns after reading CSV:", data.columns.tolist())
-
-    # Convert 'time' to datetime, handling UTC
+    # Convert types
     data['time'] = pd.to_datetime(data['time'], utc=True)
-
-    # Convert 'slp' to numeric, forcing errors to NaN
     data['slp'] = pd.to_numeric(data['slp'], errors='coerce')
+    data_clean = data.dropna(subset=['slp']).copy()
 
-    # Drop rows where 'slp' is NaN
-    data_clean = data.dropna(subset=['slp'])
+    # --- NEW FILTERING LOGIC ---
+    if hours:
+        # Get the current time in UTC to match the data's timezone
+        now = datetime.now(timezone.utc)
+        cutoff = now - timedelta(hours=hours)
+        data_clean = data_clean[data_clean['time'] >= cutoff]
 
-    # Find the minimum recorded pressure and its corresponding time
-    min_pressure = data_clean['slp'].min()
-    min_pressure_time = data_clean[data_clean['slp'] == min_pressure]['time'].iloc[0]
+    if data_clean.empty:
+        await ctx.send(f"No data found for station {stationID} in the last {hours} hours.")
+        return
+    # ---------------------------
+
+    # Find the minimum recorded pressure
+    min_val = data_clean.loc[data_clean['slp'].idxmin()]
+    min_pressure = min_val['slp']
+    min_pressure_time = min_val['time']
+    min_pressure_lat = min_val['latitude']
+    min_pressure_lon = min_val['longitude']
 
     await ctx.send("Data request successful, plotting data...")
-    # Plotting the SLP vs Time
+
+    # Plotting
     plt.figure(figsize=(12, 6))
     plt.plot(data_clean['time'], data_clean['slp'], marker='o', linestyle='-', color='b')
-    plt.title(f'Time vs Sea Level Pressure (SLP) series of Station {stationID}\nMinimum Pressure: {min_pressure:.2f} hPa at {min_pressure_time.strftime("%Y-%m-%d %H:%M")}')
-    plt.xlabel('Time (Date)')
+    
+    title_suffix = f" (Last {hours}h)" if hours else ""
+    plt.title(f'Station {stationID}{title_suffix}\nMin: {min_pressure:.2f} hPa at {min_pressure_time.strftime("%m-%d %H:%M")}\nLoc: ({float(min_pressure_lat):.2f}, {float(min_pressure_lon):.2f})')
+    
+    plt.xlabel('Time (UTC)')
     plt.ylabel('Sea Level Pressure (hPa)')
     plt.xticks(rotation=45)
-    plt.grid()
+    plt.grid(True)
+    
     image_path = f'obsplot_{stationID}.png'
     plt.savefig(image_path, format='png', bbox_inches='tight')
     plt.close()
 
-    with open(image_path, 'rb') as image_file:
-        image = discord.File(image_file)
-        await ctx.send(file=image)
+    with open(image_path, 'rb') as f:
+        await ctx.send(file=discord.File(f))
 
     os.remove(image_path)
 
@@ -4480,6 +4485,74 @@ async def ensoplot(ctx, year:int):
         await ctx.send(file=image)
 
     os.remove(image_path)
+
+@bot.command(name='roniplot')
+async def roniplot(ctx, year: int):  # Type hinting year as int for easier handling
+    if year < 1950 or year > 2025:
+        await ctx.send("Out of range. 1950-2025 only allowed")
+        return # Stop execution if out of range
+
+    import matplotlib.pyplot as plt
+    import os
+    import pandas as pd
+    import matplotlib.style as mplstyle
+
+    mplstyle.use("dark_background")
+    # Load data
+    df = pd.read_csv('RONI.csv')
+    
+    # Filter for the specific year
+    df_year = df[df['YR'] == year]
+    
+    if df_year.empty:
+        await ctx.send(f"No data found for the year {year}.")
+        return
+
+    # Create the plot
+    fig, ax = plt.subplots(figsize=(10, 6))
+    ax.plot(df_year['MTH'], df_year['ANOM'], marker='o', label='RONI', color='orange')
+    
+    # --- MAPPING MONTHS ---
+    month_map = {1: 'JAN', 2: 'FEB', 3: 'MAR', 4: 'APR', 5: 'MAY', 6: 'JUN', 
+                 7: 'JUL', 8: 'AUG', 9: 'SEP', 10: 'OCT', 11: 'NOV', 12: 'DEC'}
+    
+    # Set the ticks to be the month numbers and labels to be the month names
+    plt.xticks(ticks=df_year['MTH'], labels=[month_map[m] for m in df_year['MTH']])
+    # ----------------------
+
+    plt.title(f'Corrected ENSO (RONI) Data for {year} (1950-2025)')
+    plt.xlabel('Month')
+    plt.ylabel('ENSO (RONI) (°C)')
+    plt.grid(True, linestyle='--', alpha=0.6)
+
+    # Annotate points
+    for i, txt in enumerate(df_year['ANOM']):
+        ax.annotate(f'{txt:.2f}', (df_year['MTH'].iloc[i], txt), 
+                    textcoords="offset points", xytext=(0, 5), ha='center')
+        
+    # Background color bands
+    ax.axhspan(0, 0.5, facecolor='red', alpha=0.1)
+    ax.axhspan(0.5, 1, facecolor='red', alpha=0.3)
+    ax.axhspan(1, 1.5, facecolor='red', alpha=0.5)
+    ax.axhspan(1.5, 3, facecolor='red', alpha=0.7)
+    ax.axhspan(-0.5, 0, facecolor='blue', alpha=0.1)
+    ax.axhspan(-1, -0.5, facecolor='blue', alpha=0.3)
+    ax.axhspan(-1.5, -1, facecolor='blue', alpha=0.5)
+    ax.axhspan(-3, -1.5, facecolor='blue', alpha=0.7)
+
+    plt.legend()
+    plt.tight_layout()
+
+    # Save and send
+    image_path = f'ENSO_plot_for_{year}.png'
+    plt.savefig(image_path, format='png')
+    plt.close()
+
+    with open(image_path, 'rb') as image_file:
+        await ctx.send(file=discord.File(image_file))
+
+    os.remove(image_path)
+
 
 @bot.command(name='iodplot')
 async def iodplot(ctx, year:int):
@@ -7259,6 +7332,186 @@ async def jwt(ctx, rmw_nm:float, windspeed:float):
     # Remove the temporary image file
     os.remove(image_path)
 
+@bot.command(name='mwplot')
+async def mwplot(ctx, atcfid, instrument, time:str, date:str, type='89', control=3):
+    import matplotlib.style as mplstyle
+    import matplotlib.pyplot as plt
+    import datetime
+    import os
+    import random
+    import shutil
+    import boto3
+    from botocore import UNSIGNED
+    from botocore.config import Config
+    from netCDF4 import Dataset
+    import tcprimedapi
+    import cmap_collection as cc
+    import cartopy.crs as ccrs
+    import cartopy.feature as cfeature
+    import numpy as np
+    import matplotlib.ticker as mticker
+    from cartopy.mpl.gridliner import LONGITUDE_FORMATTER, LATITUDE_FORMATTER
+
+    # Set initial style
+    mplstyle.use("default")
+    plt.rcParams['pcolor.shading'] = 'auto'
+
+    # Parse Inputs 
+    hour, minute = time[:2], time[2:]
+    date_str = date.split('/')
+    day, month, year = date_str[0], date_str[1], date_str[2]
+    target_time = datetime.datetime(int(year), int(month), int(day), int(hour), 0, 0)
+    atcfid = atcfid.lower()
+
+    # Define select_instrument inside command
+    def select_instrument(DS, instrument, mw):
+        instrument = instrument.upper()
+        if mw == "37":
+            if  instrument == "AMSR2_A" or instrument == "AMSR2_B" or instrument == "AMSR2":
+                return DS["passive_microwave/S3/latitude"][:], DS["passive_microwave/S3/longitude"][:], DS["passive_microwave/S3/TB_36.5H"][:]
+            elif instrument == "ATMS":
+                return DS["passive_microwave/S3/latitude"][:], DS["passive_microwave/S3/longitude"][:], DS["passive_microwave/S3/TB_88.2QV"][:]
+            elif instrument == "AMSRE_A" or instrument == "AMSRE_B" or instrument == "AMSRE":
+                return DS["passive_microwave/S4/latitude"][:], DS["passive_microwave/S4/longitude"][:], DS["passive_microwave/S4/TB_36.5H"][:]
+            elif instrument == "GMI":
+                return DS["passive_microwave/S1/latitude"][:], DS["passive_microwave/S1/longitude"][:], DS["passive_microwave/S1/TB_37.0H"][:]
+            elif instrument == "SSMI":
+                return DS["passive_microwave/S1/latitude"][:], DS["passive_microwave/S1/longitude"][:], DS["passive_microwave/S1/TB_37.0H"][:]
+            elif instrument == "TMI":
+                return DS["passive_microwave/S2/latitude"][:], DS["passive_microwave/S2/longitude"][:], DS["passive_microwave/S2/TB_37.0H"][:]
+            elif instrument == "SSMIS":
+                return DS["passive_microwave/S2/latitude"][:], DS["passive_microwave/S2/longitude"][:],  DS["passive_microwave/S2/TB_37.0H"][:]
+            else:
+                print("Not found, valid satellites: [AMSR2, AMSRE, ATMS, GMI, SSMI, TMI, SSMIS]. We will default to SSMI.")
+            return DS["passive_microwave/S1/latitude"][:], DS["passive_microwave/S1/longitude"][:], DS["passive_microwave/S1/TB_37.0H"][:]
+        if mw == "89":
+            if instrument == "AMSUB":
+                return DS["passive_microwave/S1/latitude"][:], DS["passive_microwave/S1/longitude"][:], DS["passive_microwave/S1/TB_89.0_0.9QV"][:]
+            elif instrument == "AMSR2_A":
+                return DS["passive_microwave/S5/latitude"][:], DS["passive_microwave/S5/longitude"][:], DS["passive_microwave/S5/TB_A89.0H"][:]
+            elif instrument == "AMSR2_B":
+                return DS["passive_microwave/S6/latitude"][:], DS["passive_microwave/S6/longitude"][:], DS["passive_microwave/S6/TB_B89.0H"][:]
+            elif instrument == "AMSRE_A":
+                return DS["passive_microwave/S5/latitude"][:], DS["passive_microwave/S5/longitude"][:], DS["passive_microwave/S5/TB_A89.0H"][:]
+            elif instrument == "AMSRE_B":
+                return DS["passive_microwave/S6/latitude"][:], DS["passive_microwave/S6/longitude"][:], DS["passive_microwave/S6/TB_B89.0H"][:]
+            elif instrument == "GMI":
+                return DS["passive_microwave/S1/latitude"][:], DS["passive_microwave/S1/longitude"][:], DS["passive_microwave/S1/TB_89.0H"][:]
+            elif instrument == "SSMI":
+                return DS["passive_microwave/S2/latitude"][:], DS["passive_microwave/S2/longitude"][:], DS["passive_microwave/S2/TB_85.5H"][:]
+            elif instrument == "SSMIS":
+                return DS["passive_microwave/S4/latitude"][:], DS["passive_microwave/S4/longitude"][:], DS["passive_microwave/S4/TB_91.665H"][:]
+            elif instrument == "TMI":
+                return DS["passive_microwave/S3/latitude"][:], DS["passive_microwave/S3/longitude"][:], DS["passive_microwave/S3/TB_85.5H"][:]
+            else:
+                print("Not found, valid satellites: [AMSR2_A, AMSR2_B, AMSRE_A, AMSRE_B, AMSUB, ATMS, GMI, SSMI, TMI, SSMIS]. We will default to SSMI.")
+                return DS["passive_microwave/S2/latitude"][:], DS["passive_microwave/S2/longitude"][:], DS["passive_microwave/S2/TB_85.5H"][:]
+
+    # Query Closest File ---
+    tcpc = tcprimedapi.Client()
+    start_search = target_time - datetime.timedelta(hours=control)
+    end_search = target_time + datetime.timedelta(hours=control)
+
+    ins_name = instrument.upper()
+    if ins_name == 'AMSR2': ins_name = 'AMSR2_A'
+    if ins_name == 'AMSRE': ins_name = 'AMSRE_A'
+    query_ins = ins_name
+    if 'AMSR2' in ins_name: query_ins = 'AMSR2'
+    if 'AMSRE' in ins_name: query_ins = 'AMSRE'
+
+    tcpc.query({
+        'atcf_id': [atcfid], 
+        'file_type': [query_ins], 
+        'start_date': start_search, 
+        'end_date': end_search
+    })
+
+    await ctx.send("Searching S3 Bucket...")
+    closest_file = None
+    min_delta = datetime.timedelta(days=1)
+
+    for key in tcpc.object_keys:
+        ts_string = key.split('_')[-1].replace('.nc', '')
+        file_time = datetime.datetime.strptime(ts_string, '%Y%m%d%H%M%S')
+        delta = abs(file_time - target_time)
+        if delta < min_delta:
+            min_delta = delta
+            closest_file = key
+
+    if not closest_file:
+        await ctx.send("No files found for that time/instrument.")
+        return
+
+    # We download to a clean local directory outside of OneDrive
+    local_dir = r'C:\Users\Sohum Chatterjee\Downloads\Large Datasets\TC_Data_Temp'
+    if not os.path.exists(local_dir): os.makedirs(local_dir)
+    
+    file_name = closest_file.split('/')[-1]
+    local_file_path = os.path.join(local_dir, file_name)
+
+    await ctx.send(f'Downloading via Parallel S3 Transfer...')
+    
+    try:
+        s3 = boto3.client('s3', config=Config(signature_version=UNSIGNED))
+        s3.download_file("noaa-nesdis-tcprimed-pds", closest_file, local_file_path)
+    except Exception as e:
+        await ctx.send(f"Download failed: {e}")
+        return
+
+    # Plotting Logic 
+    try:
+        DS = Dataset(local_file_path)
+        Strm_latitude, Strm_longitude, Strm = select_instrument(DS, ins_name, type)
+
+        # Map metadata
+        name = "".join([DS["overpass_metadata/basin"][:].item(), 
+                        str(DS["overpass_metadata/cyclone_number"][:].item()).zfill(2), 
+                        str(DS["overpass_metadata/season"][:].item())])
+        
+        dt_obs = datetime.datetime.utcfromtimestamp(DS["overpass_metadata/time"][:].item())
+        formatted_time = dt_obs.strftime('%m/%d %H:%M UTC')
+
+        fig = plt.figure(figsize=(10, 8))
+        ax = plt.axes(projection=ccrs.PlateCarree())
+
+        col, vm, vn = cc.mw89() if type == "89" else cc.mw37()
+        plt.pcolormesh(Strm_longitude, Strm_latitude, Strm, cmap=col, vmax=vm, vmin=vn, transform=ccrs.PlateCarree())
+
+        plt.colorbar(label="Brightness Temperature (Kelvin)", fraction=0.046, pad=0.04)
+        plt.title(f"{name} {formatted_time}\n{ins_name} ~{type} GHz")
+
+        ax.add_feature(cfeature.COASTLINE, linewidth=1, color='magenta')
+        
+        storm_lat = DS["overpass_storm_metadata/storm_latitude"][:][0]
+        storm_lon = DS["overpass_storm_metadata/storm_longitude"][:][0]
+        ax.set_extent([storm_lon - 5, storm_lon + 5, storm_lat - 5, storm_lat + 5], crs=ccrs.PlateCarree())
+
+        gl = ax.gridlines(draw_labels=True, linewidth=0.5, color='gray', alpha=0.5, linestyle='--')
+        gl.top_labels = gl.right_labels = False
+        gl.xformatter = LONGITUDE_FORMATTER
+        gl.yformatter = LATITUDE_FORMATTER
+
+        image_path = f'plot_{random.randint(1000, 9999)}.png'
+        plt.savefig(image_path, format='png', bbox_inches='tight', dpi=150)
+        plt.close()
+
+        await ctx.send(file=discord.File(image_path))
+        os.remove(image_path)
+
+    except Exception as e:
+        await ctx.send(f"Plotting Error: {e}")
+        print(e)
+    finally:
+        # Final Cleanup 
+        if 'DS' in locals():
+            DS.close()
+        
+        # Remove the downloaded file
+        if os.path.exists(local_file_path):
+            os.remove(local_file_path)
+            
+        mplstyle.use("dark_background")
+
 @bot.command(name='mcfetch')
 async def mcfetch(ctx, satellite:str, band:str, latitude:float, longitude:float, time:str, day:int, month:int, year:int, mag1="", mag2="", zoom="", eu="", coverage=""):
     if zoom != "" and int(zoom) > 2000:
@@ -8483,7 +8736,8 @@ async def gridsat(ctx, btkID:str, yr:str, hour:int, time:str, col:str, override 
             # Detect IDL crossing
             if idl == False:
                 # Normal case
-                subset_url = f"{base_url}/{year}/{filename}?var=irwin_cdr&north={lat_max}&south={lat_min}&east={lon_max}&west={lon_min}&&time={time}&horizStride=1&vertStride=1&&accept=netcdf3"
+                subset_url = f"{base_url}/{year}/{filename}?var=irwin_cdr&north={lat_max:.02f}&south={lat_min:.02f}&east={lon_max:.02f}&west={lon_min:.02f}&&time={time}&horizStride=1&vertStride=1&&accept=netcdf3"
+                print(subset_url)
                 response = requests.get(subset_url)
                 if response.status_code == 200:
                     with open(destination, "wb") as f:
@@ -8575,8 +8829,8 @@ async def gridsat(ctx, btkID:str, yr:str, hour:int, time:str, col:str, override 
     await ctx.send('Data download successful, plotting values...')
 
     # Load the NetCDF file
-    dataset = xr.open_dataset(destination, decode_times=False)
-
+    dataset = xr.open_dataset(destination, decode_cf=True, mask_and_scale=True)
+    print(dataset.data_vars)
     lat = dataset['lat']
     lon = dataset['lon']
     brightness_temp = dataset['irwin_cdr'] if satellite == 'unknown' else dataset['ch4']
@@ -8654,10 +8908,13 @@ async def gridsat(ctx, btkID:str, yr:str, hour:int, time:str, col:str, override 
         brightness_temp_slice = brightness_temp_slice.assign_coords(lon=remap_longitudes(brightness_temp_slice.lon)).sortby('lon')
 
     def get_brightness_temp_subset(brightness_temp_slice, lat_min, lat_max, lon_min, lon_max):
+        # Sort coordinates first to ensure slice works correctly
+        brightness_temp_slice = brightness_temp_slice.sortby(['lat', 'lon'])
+        
         if idl == False:
             subset = brightness_temp_slice.sel(
-                lat=slice(lat_min, lat_max),
-                lon=slice(lon_min, lon_max)
+            lat=slice(min(lat_min, lat_max), max(lat_min, lat_max)),
+            lon=slice(min(lon_min, lon_max), max(lon_min, lon_max))
             )
         else:
             # IDL wraparound
@@ -8743,7 +9000,7 @@ async def gridsat(ctx, btkID:str, yr:str, hour:int, time:str, col:str, override 
     gls.xlabel_style = {'size': 8, 'color': 'w'}  # Customize label style
     gls.ylabel_style = {'size': 8, 'color': 'w'}
     
-
+    print(f"Data range: {np.nanmin(selected_brightness_temp)} to {np.nanmax(selected_brightness_temp)}")
     import matplotlib.ticker as ticker
     cbar = plt.colorbar(pcolor, label=f'Brightness Temperature (Celcius) | Colorscale: {cmap_func.__name__}')
     cbar.locator = ticker.MultipleLocator(10)
@@ -10171,7 +10428,7 @@ async def obama(ctx):
 
 @bot.command(name='iceberg')
 async def iceberg(ctx):
-    await ctx.send("https://icebergcharts.com/i/Cyclones")
+    await ctx.send("https://www.icebergthreads.com/iceberg/CqOCrSiQCdQ9RUOxV1Fh")
 
 @bot.command(name='commandHelp')
 async def commandHelp(ctx):
