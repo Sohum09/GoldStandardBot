@@ -7477,13 +7477,14 @@ async def mwplot(ctx, atcfid, instrument, time:str, date:str, type='89', control
         fig = plt.figure(figsize=(10, 8))
         ax = plt.axes(projection=ccrs.PlateCarree())
 
+        ax.add_feature(cfeature.COASTLINE, linewidth=1, color='magenta')
+
         col, vm, vn = cc.mw89() if type == "89" else cc.mw37()
+
         plt.pcolormesh(Strm_longitude, Strm_latitude, Strm, cmap=col, vmax=vm, vmin=vn, transform=ccrs.PlateCarree())
 
         plt.colorbar(label="Brightness Temperature (Kelvin)", fraction=0.046, pad=0.04)
         plt.title(f"{name} {formatted_time}\n{ins_name} ~{type} GHz")
-
-        ax.add_feature(cfeature.COASTLINE, linewidth=1, color='magenta')
         
         storm_lat = DS["overpass_storm_metadata/storm_latitude"][:][0]
         storm_lon = DS["overpass_storm_metadata/storm_longitude"][:][0]
@@ -8132,19 +8133,19 @@ async def mjo(ctx, model:str):
     if model == 'GFS':
         url += "https://www.cpc.ncep.noaa.gov/products/precip/CWlink/MJO/ensplume_full.gif?28183947292"
     elif model == 'ECMWF':
-        url += "https://www.cpc.ncep.noaa.gov/products/precip/CWlink/MJO/CLIVAR/ECMF.png?28183947292"
+        url += "https://www.cpc.ncep.noaa.gov/products/precip/mjo/img/ECMF.png?28183947292"
     elif model == 'GEFS':
-        url += "https://www.cpc.ncep.noaa.gov/products/precip/CWlink/MJO/CLIVAR/GEFS.png?28183947292"
+        url += "https://www.cpc.ncep.noaa.gov/products/precip/mjo/img/GEFS_BC.png?28183947292"
     elif model == 'EPS':
         url += "https://www.cpc.ncep.noaa.gov/products/precip/CWlink/MJO/CLIVAR/EMON_BC.png?28183947292"
     elif model == 'CFS':
-        url += "https://www.cpc.ncep.noaa.gov/products/precip/CWlink/MJO/CLIVAR/NCFS.png?28183947292"
+        url += "https://www.cpc.ncep.noaa.gov/products/precip/mjo/img/NCFS.png?28183947292"
     elif model == 'CANM':
-        url += "https://www.cpc.ncep.noaa.gov/products/precip/CWlink/MJO/CLIVAR/CANM.png?28183947292"
+        url += "https://www.cpc.ncep.noaa.gov/products/precip/mjo/img/CANM.png?28183947292"
     elif model == 'JMA':
         url += "https://www.cpc.ncep.noaa.gov/products/precip/CWlink/MJO/CLIVAR/JMAN.png?28183947292"
     elif model == 'BOM':
-        url += "https://www.cpc.ncep.noaa.gov/products/precip/CWlink/MJO/CLIVAR/BOMM_BC.png?28183947292"
+        url += "https://www.cpc.ncep.noaa.gov/products/precip/mjo/img/JMAN.png?28183947292"
     else:
         await ctx.send("This model either does not exist, or is not supported.")
         await ctx.send("Supported models: [GFS, GEFS, ECMWF, EPS, CFS, CANM, JMA, BOM]")
@@ -10050,6 +10051,212 @@ async def fnv3(ctx, btk:str, hour:str, date:str):
 
     os.remove(image_path)  
 
+@bot.command(name='sarplot')
+async def sarplot(ctx, atcfid:str, hour:str, date:str):
+    import pandas as pd
+    import requests
+    import xarray as xr
+    import matplotlib.pyplot as plt
+    import numpy as np
+    from tqdm import tqdm
+    import os
+    import io  # Standard library for handling string streams
+    import matplotlib.style as mplstyle
+    from datetime import datetime
+
+    mplstyle.use("dark_background")
+
+    # 1. PARSE INPUT TIME
+    # Expecting !sarplot sh272026 0900 19/03/2026
+    try:
+        target_time = datetime.strptime(f"{date} {hour}", "%d/%m/%Y %H%M")
+    except ValueError:
+        await ctx.send("Invalid format! Use: `!sarplot [atcfid] [HHMM] [DD/MM/YYYY]`")
+        return
+
+    session = requests.Session()
+    api_url = "https://cyclobs.ifremer.fr/app/api/getData"
+
+    # Query for the latest system
+    query_params = {
+        "sid": atcfid.lower(), 
+        "instrument": "C-Band_SAR",
+        "include_cols": "data_url,acquisition_start_time,cyclone_name"
+    }
+
+    await ctx.send(f"Searching for SAR pass near {target_time.strftime('%Y-%m-%d %H:%M')} UTC...")
+    r = session.get(api_url, params=query_params)
+    df = pd.read_csv(io.StringIO(r.text))
+
+    #FILTER & FIND CLOSEST
+    # Drop rows without URLs
+    df_valid = df.dropna(subset=['data_url']).copy()
+
+    if df_valid.empty:
+        print(f"Server Response: {r.text}")
+        await ctx.send("No products found. Check SID or server status.")
+        return
+    
+    # Convert acquisition times to datetime objects
+    df_valid['acquisition_start_time'] = pd.to_datetime(df_valid['acquisition_start_time'])
+    
+    # Calculate absolute difference from target
+    df_valid['time_diff'] = (df_valid['acquisition_start_time'] - target_time).abs()
+    
+    # Get the closest entry
+    closest_match = df_valid.sort_values('time_diff').iloc[0]
+    
+    #Is the closest pass within a reasonable window?
+    max_window = pd.Timedelta(hours=24)
+    if closest_match['time_diff'] > max_window:
+        await ctx.send(f"No pass found within 24 hours of that time. Closest was {closest_match['time_diff'].total_seconds()/3600:.1f} hours away.")
+        return
+    
+    download_url = closest_match['data_url']
+    filename = os.path.basename(download_url)
+
+    if not os.path.exists(filename):
+        await ctx.send(f"Downloading {filename}...")
+        response = session.get(download_url, stream=True)
+        total_size = int(response.headers.get('content-length', 0))
+        chunk_size = 1024 * 1024 
+
+        with open(filename, "wb") as f, tqdm(
+            desc=filename,
+            total=total_size,
+            unit='iB',
+            unit_scale=True,
+            unit_divisor=1024,
+        ) as bar:
+            for data in response.iter_content(chunk_size=chunk_size):
+                size = f.write(data)
+                bar.update(size)
+    else:
+        print(f"File {filename} already exists. Skipping download.")
+
+    print("Processing NetCDF...")
+    ds = xr.open_dataset(filename, chunks={})
+
+    import cartopy.crs as ccrs
+    import cartopy.feature as cfeature
+    import matplotlib.pyplot as plt
+    import numpy as np
+
+    #SETUP & DATA EXTRACTION
+    lons = ds.lon.squeeze().values
+    lats = ds.lat.squeeze().values
+    mask = ds.mask_flag.squeeze().values
+    winds_ms = ds.wind_speed.squeeze().values
+    winds_kt = winds_ms * 1.94384
+    idl_flag = False
+
+    #Check if longitude is within 2 deg of the IDL:
+    if lons.max() > 178 or lons.min() < -178:
+        idl_flag = True
+
+    #Extract Metadata
+    storm_name = ds.attrs.get('Storm name', 'Unknown')
+    #Clean up sensor name from the filename attribute
+    sensor_info = ds.attrs.get('sourceProduct', 'SAR').split('_')[0].upper()
+    #Extract true maximum from the actual wind speed pixels only if masks == 0:
+    
+    valid_winds = np.where(mask == 0, winds_ms, np.nan)
+    vmax_99_ms = np.nanpercentile(valid_winds, 99.9)
+    vmax_99_kt = vmax_99_ms * 1.94384
+    true_max_ms = np.nanmax(valid_winds) 
+    true_max_kt = true_max_ms * 1.94384
+
+    #CREATE FIGURE
+    fig = plt.figure(figsize=(14, 10))
+    ax = plt.axes(projection=ccrs.PlateCarree()) if not idl_flag else plt.axes(projection=ccrs.PlateCarree(central_longitude=180))
+
+    from matplotlib import colors
+    
+    ax.add_feature(cfeature.COASTLINE, linewidth=1, color="c")
+    ax.add_feature(cfeature.BORDERS, color="w", linewidth=0.5)
+    ax.add_feature(cfeature.LAND, facecolor=colors.to_rgba("c", 0.25))
+    
+    if idl_flag:
+        lons = xr.where(lons < 0, lons + 180, lons - 180)
+    ax.set_extent([np.nanmin(lons), np.nanmax(lons), np.nanmin(lats), np.nanmax(lats)], crs=ccrs.PlateCarree())
+    #PLOT WIND FIELD
+    mesh = ax.pcolormesh(
+        lons, lats, winds_ms,
+        transform=ccrs.PlateCarree(),
+        cmap='gist_ncar',
+        shading='auto',
+        vmin=0, 
+        vmax=75
+    )
+
+    #ADD ISOLINES
+    levels_kt = [34, 50, 64, 83, 96, 113, 137]
+    #Hex code for light green
+    colors_kt = ['g', '#8AFF8A', '#ffff00', '#ffa001', '#ff5908', 'r', 'm']
+    levels_ms = [val / 1.94384 for val in levels_kt]
+
+    # We filter levels to ensure they actually exist in the data to avoid empty contour errors
+    existing_levels = [l for l in levels_ms if l < np.nanmax(winds_ms)]
+
+    if existing_levels:
+        contours = ax.contour(
+            lons, lats, winds_ms, 
+            levels=existing_levels, 
+            colors=colors_kt, 
+            linewidths=1.5,
+            transform=ccrs.PlateCarree()
+        )
+        
+        # clabel fix: removed 'fontweight'
+        #fmt = {ms: f'{int(ms * 1.94384)}kt' for ms in existing_levels}
+        #plt.clabel(contours, fmt=fmt, inline=True, fontsize=10)
+    
+
+    # 5. DISPLAY MAX WIND ANNOTATION
+    # Ensure we get scalar floats for the text placement
+    '''
+    try:
+        c_lon = ds.lon_storm_center.values.item()
+        c_lat = ds.lat_storm_center.values.item()
+    except AttributeError:
+        # Fallback if the variable name differs slightly
+        c_lon, c_lat = np.nanmean(lons), np.nanmean(lats)
+    
+
+    ax.text(
+        np.nanmax(lons), np.nanmax(lats), 
+        f"Vmax: {true_max_ms:.2f} m/s ({true_max_kt:.2f} kt)",
+        transform=ccrs.PlateCarree(),
+        bbox=dict(facecolor='black', alpha=0.8, edgecolor='black', boxstyle='round,pad=0.3'),
+        fontsize=11, fontweight='bold', zorder=5
+    )
+    '''
+
+    # 6. FORMATTING & TITLE
+    gl = ax.gridlines(draw_labels=True, dms=True, x_inline=False, y_inline=False, alpha=0.3)
+    gl.top_labels = gl.right_labels = False
+
+    cbar = plt.colorbar(mesh, ax=ax, orientation='vertical', pad=0.04, shrink=0.7)
+    cbar.set_label('Wind Speed (m/s)')
+
+    actual_time = closest_match['acquisition_start_time'].strftime('%Y-%m-%d %H:%M')
+
+    plt.title(f"{sensor_info} SAR Wind Field - {atcfid.upper()}\nAcquired: {actual_time}\nAbsolute Vmax: {true_max_ms:.2f} m/s ({true_max_kt:.2f} kt) | 99.5% Vmax: {vmax_99_ms:.2f} m/s ({vmax_99_kt:.2f} kt)", 
+              loc='center', fontsize=12, fontweight='bold')
+
+    image_path = f'SAR_Map.png'
+    plt.savefig(image_path, format='png', bbox_inches='tight')
+    plt.close()
+    ds.close()
+
+    with open(image_path, 'rb') as image_file:
+        image = discord.File(image_file)
+        await ctx.send(file=image)
+
+    os.remove(image_path)  
+    #Remove the dowloaded file
+    os.remove(filename)
+    
 
 @bot.command(name='tcprimed')
 async def tcprimed(ctx):
