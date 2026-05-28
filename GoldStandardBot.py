@@ -3428,6 +3428,178 @@ async def season(ctx, basin:str, yr:str):
 
     os.remove(image_path)
 
+@bot.command(name='tcgheatmap')
+async def tcgheatmap(ctx, basin:str, yr:str):
+    import csv
+    import discord
+    import matplotlib.pyplot as plt
+    import cartopy.crs as ccrs
+    import cartopy.feature as cfeature
+    from matplotlib.lines import Line2D
+    import os
+    import numpy as np
+    import matplotlib.style as mplstyle
+    from scipy.ndimage import gaussian_filter
+    import matplotlib.colors as mcolors
+    import matplotlib.ticker as mticker
+    from cartopy.mpl.gridliner import LONGITUDE_FORMATTER, LATITUDE_FORMATTER
+
+    mplstyle.use("dark_background") 
+    basin = basin.upper()
+    if basin not in ['NA', 'EP', 'WP', 'NI', 'SI', 'SP']:
+        await ctx.send("The basin is not valid! Valid basins are ['NA', 'EP','WP', 'NI', 'SI', 'SP']")
+        return
+        
+    await ctx.send("Please be patient. As this is a season, the plot may take a little while to generate.")
+
+    # Basin configurations using clean, standard geographic coordinates
+    def return_basin_params(basin):
+        if basin == 'NA':
+            return -110, 0, 0, 65, False
+        elif basin == 'EP':
+            return -179.99, -85, 0, 65, False
+        elif basin == 'WP':
+            return 95, 179.99, 0, 60, False
+        elif basin == 'NI':
+            return 40, 110, 0, 40, False
+        elif basin == 'SI':
+            return 20, 140, -40, 0, False
+        elif basin == 'SP':
+            return 135, -120, -40, 0, True  # Standard raw boundaries crossing the IDL
+        return 0, 360, -90, 90, False
+        
+    lon_min, lon_max, lat_min, lat_max, idl = return_basin_params(basin)
+
+    tcg_lon, tcg_lat = [], []
+    current_storm_id = None
+    found_tcg_for_current_storm = False
+
+    with open('ibtracs.ALL.list.v04r01.csv', mode='r') as file:
+        csvFile = csv.reader(file)
+        for line_num, lines in enumerate(csvFile, start=1):
+            if line_num > 3:
+                if lines[3] == basin and yr == lines[18][-4:]:
+                    storm_id = lines[18].strip()
+                    status = lines[22].strip() if (int(yr) >= 2000 or basin in ['NA', 'EP']) else lines[7].strip()
+                    
+                    if storm_id != current_storm_id:
+                        current_storm_id = storm_id
+                        found_tcg_for_current_storm = False 
+
+                    if not found_tcg_for_current_storm and status in ['TD', 'TS', 'SD', 'SS']:
+                        if int(yr) == 2013 and basin == 'WP':
+                            tcg_lon.append(float(lines[9]))
+                            tcg_lat.append(float(lines[8]))
+                        else:
+                            tcg_lon.append(float(lines[20]))
+                            tcg_lat.append(float(lines[19]))
+                        found_tcg_for_current_storm = True
+    
+    if len(tcg_lon) == 0:
+        await ctx.send(f"No cyclogenesis events found for Basin: {basin} in Year: {yr}.")
+        return
+
+    points_lon = np.array(tcg_lon)
+    points_lat = np.array(tcg_lat)
+
+    # For grid evaluation, normalize negative longitudes to 0-360 space *only* if wrapping past the IDL
+    grid_lon_min = lon_min
+    grid_lon_max = lon_max + 360 if (idl and lon_max < lon_min) else lon_max
+    
+    eval_points_lon = np.where(points_lon < 0, points_lon + 360, points_lon) if idl else points_lon
+
+    # Define a high-resolution grid layout
+    fine_res = 1 
+    fine_x = np.arange(grid_lon_min, grid_lon_max + fine_res, fine_res)
+    fine_y = np.arange(lat_min, lat_max + fine_res, fine_res)
+    fine_X, fine_Y = np.meshgrid(fine_x, fine_y)
+
+    circle_radius = 5
+    sliding_freq_grid = np.zeros(fine_X.shape)
+
+    for i in range(fine_X.shape[0]):
+        for j in range(fine_X.shape[1]):
+            pixel_lon = fine_X[i, j]
+            pixel_lat = fine_Y[i, j]
+            
+            # Distance computation utilizing normalized 0-360 space for IDL basins
+            distances = np.sqrt((eval_points_lon - pixel_lon)**2 + (points_lat - pixel_lat)**2)
+            in_circle = distances <= circle_radius
+            sliding_freq_grid[i, j] = np.sum(in_circle)
+
+    # Apply Gaussian smoothing
+    smoothed_freq = gaussian_filter(sliding_freq_grid, sigma=3.0)
+    smoothed_freq = np.ma.masked_where(smoothed_freq < 0.25, smoothed_freq)
+
+    # --- PLOTTING FIXED STRUCTURE ---
+    # Define a normal global source coordinate reference system
+    data_crs = ccrs.PlateCarree()
+    # Define our visual map display projection
+    plot_crs = ccrs.PlateCarree(central_longitude=180) if idl else ccrs.PlateCarree()
+    
+    fig, ax = plt.subplots(subplot_kw={'projection': plot_crs}, figsize=(14, 10))
+    
+    # FIX: Pass standard boundaries and explicitly tell Cartopy they are normal PlateCarree degrees
+    ax.set_extent([lon_min, lon_max, lat_min, lat_max], crs=data_crs)
+
+    res = '10m'
+    from matplotlib import colors
+    ax.add_feature(cfeature.LAND.with_scale(res), facecolor=colors.to_rgba("c", 0.12), zorder=1)
+    ax.add_feature(cfeature.OCEAN.with_scale(res), facecolor='#111113', zorder=0)
+    ax.add_feature(cfeature.COASTLINE.with_scale(res), linewidth=0.7, edgecolor="c", alpha=0.6, zorder=3)
+    ax.add_feature(cfeature.BORDERS.with_scale(res), edgecolor="w", linewidth=0.5, alpha=0.4, zorder=3)
+
+    cmap = mcolors.LinearSegmentedColormap.from_list(
+        "tcg_smooth_circular", ["#1a3366", "#33ccff", "#ffcc00", "#ff3300"]
+    )
+    cmap.set_bad(alpha=0)
+
+    # If working inside 0-360 mapped space, shift x-coordinates back to standard -180 to 180 format for plotting
+    plot_x = np.where(fine_x > 180, fine_x - 360, fine_x) if idl else fine_x
+    
+    # Sort arrays to keep monotonic order clean for pcolormesh tracking 
+    if idl:
+        sort_idx = np.argsort(plot_x)
+        plot_x = plot_x[sort_idx]
+        smoothed_freq = smoothed_freq[:, sort_idx]
+
+    # Render heatmap using raw un-shifted standard Data CRS transforms
+    mesh = ax.pcolormesh(plot_x, fine_y, smoothed_freq, cmap=cmap, transform=data_crs, zorder=2, alpha=0.85, shading='auto')
+
+    # Overlay genesis tracking points using regular data crs specifications
+    ax.scatter(points_lon, points_lat, color='#ffffff', edgecolor='k', s=30, linewidth=0.6, transform=data_crs, zorder=4, label='Genesis Point (First TD/TS)')
+
+    # Colorbar Elements
+    cbar = plt.colorbar(mesh, ax=ax, orientation='horizontal', pad=0.06, shrink=0.7, aspect=40)
+    cbar.set_label(f'Smoothed TCG Density ({circle_radius}° radius)', fontsize=11, color='w')
+    cbar.ax.tick_params(labelsize=9, labelcolor='w')
+    cbar.locator = mticker.MaxNLocator(integer=True)
+    cbar.update_ticks()
+
+    # Gridlines
+    gl = ax.gridlines(draw_labels=True, linewidth=0.5, linestyle='--', color='#333333', zorder=5)
+    gl.top_labels = False; gl.right_labels = False
+    gl.xformatter = LONGITUDE_FORMATTER; gl.yformatter = LATITUDE_FORMATTER
+    gl.xlabel_style = {'color': 'gray', 'size': 9}; gl.ylabel_style = {'color': 'gray', 'size': 9}
+
+    plt.legend(loc='upper right', facecolor='#121214', edgecolor='#333333', labelcolor='w')
+    plt.title(f"{basin} {yr} TCG Density \nGaussian-Filtered {circle_radius}° radius | Total Formations: {len(tcg_lon)}", 
+            fontsize=14, pad=15, weight='bold', color='w')
+
+    plt.tight_layout()
+    r = np.random.randint(1, 100000)
+    image_path = f'Track_Map{r}.png'
+    plt.savefig(image_path, format='png', bbox_inches='tight')
+    plt.close()
+
+    try:
+        with open(image_path, 'rb') as image_file:
+            image = discord.File(image_file)
+            await ctx.send(file=image)
+    finally:
+        if os.path.exists(image_path):
+            os.remove(image_path)
+
 @bot.command(name='seasongen_atcf')
 async def seasongen_atcf(ctx, url:str, basin=''):
     import matplotlib.pyplot as plt
